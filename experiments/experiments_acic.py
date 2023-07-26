@@ -46,7 +46,7 @@ def download_input_trans():
         gdown.download(id=PREPROCESSED_FILE_ID, output=cov_loc, quiet=False)
 
 
-def randomly_binarize_numeric_cols(X, numeric_only=False, numeric_cols=NUMERIC_COLS):
+def randomly_binarize_numeric_cols(X, numeric_only=False, numeric_cols=tuple(NUMERIC_COLS)):
     X_new = X.copy()
     for i in numeric_cols:
         X_new[:, i] = (X[:, i] > np.random.choice(X[:, i])).astype(int)
@@ -74,10 +74,12 @@ def get_acic_covariates(pre_trans: bool = False, keep_categorical: bool = False)
 
                     enc.fit(np.array(X[[cols_]]).reshape((-1, 1)))
 
-                    for k in range(len(list(enc.get_feature_names()))):
-                        X[cols_ + list(enc.get_feature_names())[k]] = enc.transform(
+                    for k in range(len(list(enc.get_feature_names()))):  # pyright: ignore
+                        X[cols_ + list(enc.get_feature_names())[k]] = enc.transform(  # pyright: ignore
                             np.array(X[[cols_]]).reshape((-1, 1))
-                        ).toarray()[:, k]
+                        ).toarray()[  # pyright: ignore
+                            :, k
+                        ]
 
                     feature_list.append(cols_)
 
@@ -123,13 +125,29 @@ def get_acic_data_orig(simu_num, seed, n_test, subset_train=None, pre_trans=True
 
     # split data
     X, X_t, y, y_t, w, w_t, mu0, mu0_t, mu1, mu1_t, cate_in, cate_out = split_data(
-        X, y_full, w_full, mu0_full, mu1_full, cate_full, n_test=n_test, random_state=seed, subset_train=subset_train
+        X,
+        y_full,
+        w_full,
+        mu0_full,
+        mu1_full,
+        cate_full,
+        n_test=n_test,
+        random_state=seed,
+        subset_train=subset_train,  # pyright: ignore
     )
     return X, X_t, y, y_t, w, w_t, mu0, mu0_t, mu1, mu1_t, cate_in, cate_out
 
 
 def split_data(
-    X_full, y_full, w_full, mu0_full, mu1_full, cate_full, n_test=0.8, random_state=42, subset_train: int = None
+    X_full,
+    y_full,
+    w_full,
+    mu0_full,
+    mu1_full,
+    cate_full,
+    n_test=0.8,
+    random_state=42,
+    subset_train: int = None,  # pyright: ignore
 ):
     X, X_t, y, y_t, w, w_t, mu0, mu0_t, mu1, mu1_t, cate_in, cate_out = train_test_split(
         X_full, y_full, w_full, mu0_full, mu1_full, cate_full, test_size=n_test, random_state=random_state
@@ -379,6 +397,7 @@ def acic_simu(
 
 
 class AcicOrigGenerator(DataGenerator):
+    # pylint: disable-next=super-init-not-called
     def __init__(self, n_train=1000, n_val=500, n_test=500, subset_cols="all", simu_num=1):
         self.n_train = n_train
         self.n_test = n_test
@@ -439,6 +458,7 @@ class AcicOrigGenerator(DataGenerator):
 
 
 class AcicLinearGenerator(DataGenerator):
+    # pylint: disable-next=super-init-not-called
     def __init__(
         self,
         n_train=1000,
@@ -520,7 +540,22 @@ class AcicLinearGenerator(DataGenerator):
         )
 
     def __call__(self, seed=42):
-        X, y, w, mu0, mu1, cate, p, X_test, y_test, w_test, mu_0_test, mu_1_test, cate_test, p_test = acic_simu(
+        (  # pyright: ignore
+            X,
+            y,
+            w,
+            mu0,
+            mu1,
+            cate,
+            p,
+            X_test,
+            y_test,
+            w_test,
+            mu_0_test,
+            mu_1_test,
+            cate_test,
+            p_test,
+        ) = acic_simu(
             seed,
             n_train=self.n_train + self.n_val,
             xi=self.xi,

@@ -14,7 +14,7 @@
 */lib/
 */lib64/
 */share/
-*.cfg
+.mypy_cache/
 .pytest_cache
 data/
 dist/

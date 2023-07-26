@@ -113,6 +113,6 @@ def download_if_needed(
     if unarchive and unarchive_folder is not None:
         try:
             unarchive_if_needed(download_path, unarchive_folder)
-        except BaseException as e:
+        except BaseException as e:  # pylint: disable=broad-exception-caught
             print(f"Failed to unpack {download_path}. Error {e}")
             download_path.unlink()

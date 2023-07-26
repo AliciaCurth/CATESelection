@@ -265,7 +265,7 @@ if __name__ == "__main__":
             criterion_names=args.criteria,
             experiment_type="ihdp",
             n_exp=n_repeats,
-            n_train=0.66,
+            n_train=0.66,  # pyright: ignore
             file_suffix=args.file_name,
         )
     else:

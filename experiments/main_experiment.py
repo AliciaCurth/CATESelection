@@ -1,3 +1,5 @@
+# pyright: reportUnboundVariable=false
+
 import csv
 import os
 
@@ -137,8 +139,8 @@ def run_one_experiment(
         val_scores += list(val_scores_crit.values())
         # save name of best model
         print("Criterion: {}, scores: {}".format(crit_name, val_scores_crit))
-        best_models.update({crit_name: min(val_scores_crit, key=val_scores_crit.get)})
-        best_model_list.append(min(val_scores_crit, key=val_scores_crit.get))
+        best_models.update({crit_name: min(val_scores_crit, key=val_scores_crit.get)})  # type: ignore
+        best_model_list.append(min(val_scores_crit, key=val_scores_crit.get))  # type: ignore
 
     print("Best models: {}".format(best_models))
 
@@ -299,7 +301,7 @@ def get_model(model_name, hyperparams=None, n_cv=5):
 
     if model_name == "lr":
         alphas = [0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100, 1000, 10000]
-        regressor = RidgeCV(alphas=alphas, **hyperparams)
+        regressor = RidgeCV(alphas=alphas, **hyperparams)  # pyright: ignore
     elif model_name == "rf":
         hyperparam_dict = {"max_depth": 4, "n_estimators": 400}  # min samples leaf = 5
         hyperparams.update({key: value for key, value in hyperparam_dict.items() if key not in hyperparams.keys()})
@@ -322,7 +324,7 @@ def get_model(model_name, hyperparams=None, n_cv=5):
     elif model_name == "xgb_cv":
         regressor = GridSearchCV(XGBRegressor(verbosity=0), param_grid=XGB_PARAM_GRID, cv=n_cv)
     else:
-        ValueError("Invalid regressor name")
+        raise ValueError("Invalid regressor name")
 
     return regressor
 
@@ -330,11 +332,11 @@ def get_model(model_name, hyperparams=None, n_cv=5):
 def get_learner(learner_name, learner_regressor, prop_model=None, n_folds=5):
     inner_cv = isinstance(learner_regressor, GridSearchCV)
     if inner_cv:
-        param_grid = learner_regressor.param_grid
+        param_grid = learner_regressor.param_grid  # pyright: ignore
     else:
         param_grid = None
 
-    inner_regressor = learner_regressor if (not inner_cv) else learner_regressor.estimator
+    inner_regressor = learner_regressor if (not inner_cv) else learner_regressor.estimator  # pyright: ignore
     learner_regressor = clone(learner_regressor)
     inner_regressor = clone(inner_regressor)
     learner_dict = {
@@ -412,11 +414,11 @@ def get_learner(learner_name, learner_regressor, prop_model=None, n_folds=5):
 def get_criterion(criterion_name, criterion_regressor, prop_model=None):
     inner_cv = isinstance(criterion_regressor, GridSearchCV)
     if inner_cv:
-        param_grid = criterion_regressor.param_grid
+        param_grid = criterion_regressor.param_grid  # pyright: ignore
     else:
         param_grid = None
 
-    inner_regressor = criterion_regressor if (not inner_cv) else criterion_regressor.estimator
+    inner_regressor = criterion_regressor if (not inner_cv) else criterion_regressor.estimator  # pyright: ignore
     criterion_regressor = clone(criterion_regressor) if criterion_regressor is not None else criterion_regressor
     inner_regressor = clone(inner_regressor) if inner_regressor is not None else inner_regressor
     lr_Cs = [0.00001, 0.001, 0.01, 0.1, 1]

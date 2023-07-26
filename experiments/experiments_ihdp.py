@@ -99,6 +99,7 @@ def download_ihdp_data():
 
 
 class IHDPDataGenerator(DataGenerator):
+    # pylint: disable-next=super-init-not-called
     def __init__(self, setting="original", n_train=500):
         self.n_train = n_train
         self.setting = setting
@@ -115,9 +116,20 @@ class IHDPDataGenerator(DataGenerator):
 
         data_exp = get_one_data_set(data_train, i_exp=seed + 1, get_po=True)
         data_exp_test = get_one_data_set(data_test, i_exp=seed + 1, get_po=True)
-        X, y, w, mu0, mu1, cate, X_test, y_test, w_test, mu_0_test, mu_1_test, cate_test = prepare_ihdp_data(
-            data_exp, data_exp_test, setting=self.setting
-        )
+        (  # pyright: ignore
+            X,
+            y,
+            w,
+            mu0,
+            mu1,
+            cate,
+            X_test,
+            y_test,
+            w_test,
+            mu_0_test,
+            mu_1_test,
+            cate_test,
+        ) = prepare_ihdp_data(data_exp, data_exp_test, setting=self.setting)
 
         (
             X_train,
