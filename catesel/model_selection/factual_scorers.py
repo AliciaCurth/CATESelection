@@ -48,7 +48,7 @@ class wFactualTEScorer(_BaseTEScorer):
         if not self.plugin_prefit:
             return
         else:
-            self.prop_model.fit(X, w_factual)
+            self.prop_model.fit(X, w_factual)  # pyright: ignore
             self._models_fitted = True
 
     def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None, sample_weight=None, t_score=None):
@@ -67,9 +67,9 @@ class wFactualTEScorer(_BaseTEScorer):
             prop = p_true
         else:
             if not self.plugin_prefit and not self._models_fitted:
-                self.prop_model.fit(X, w_factual)
+                self.prop_model.fit(X, w_factual)  # pyright: ignore
                 self._models_fitted = True
-            prop = self.prop_model.predict_proba(X)[:, 1]
+            prop = self.prop_model.predict_proba(X)[:, 1]  # pyright: ignore
 
         sample_weight = compute_trunc_ipw(prop, w_factual, cutoff=self.cutoff, normalize=True)
 

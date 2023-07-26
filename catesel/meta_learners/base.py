@@ -1,8 +1,11 @@
 """
 Base for CATE meta-learners
 """
+# pylint: disable=unnecessary-pass,attribute-defined-outside-init
+
 # Author: Alicia Curth
 import abc
+from typing import Optional
 
 import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin, clone
@@ -92,10 +95,10 @@ class BasePluginCATEEstimator(BaseCATEEstimator):
         self,
         po_estimator,
         binary_y: bool = False,
-        propensity_estimator: bool = None,
-        weighting_strategy: str = None,
-        weight_args: dict = None,
-        est_params: list = None,
+        propensity_estimator: Optional[bool] = None,
+        weighting_strategy: Optional[str] = None,
+        weight_args: Optional[dict] = None,
+        est_params: Optional[list] = None,
     ):
         self.po_estimator = po_estimator
         self.binary_y = binary_y
@@ -106,15 +109,21 @@ class BasePluginCATEEstimator(BaseCATEEstimator):
 
     def _fit_propensity_estimator(self, X, w):
         if self.propensity_estimator is None:
-            raise ValueError("Can only fit propensity estimator if propensity_estimator is not " "None.")
-        self.propensity_estimator.fit(X, w)
+            raise ValueError("Can only fit propensity estimator if propensity_estimator is not None.")
+        self.propensity_estimator.fit(X, w)  # type: ignore
 
     def _get_importance_weights(self, X, w):
-        p_pred = self.propensity_estimator.predict_proba(X)
+        p_pred = self.propensity_estimator.predict_proba(X)  # type: ignore
         if p_pred.ndim > 1:
             if p_pred.shape[1] == 2:
                 p_pred = p_pred[:, 1]
-        return compute_importance_weights(p_pred, w, self.weighting_strategy, self.weight_args, normalize=True)
+        return compute_importance_weights(
+            p_pred,
+            w,
+            self.weighting_strategy,
+            self.weight_args,  # type: ignore
+            normalize=True,
+        )
 
 
 class TLearner(BasePluginCATEEstimator):
@@ -132,8 +141,8 @@ class TLearner(BasePluginCATEEstimator):
 
         if self.est_params is not None:
             if isinstance(self.po_estimator, GridSearchCV):
-                self._plug_in_1 = clone(self.po_estimator.estimator)
-                self._plug_in_0 = clone(self.po_estimator.estimator)
+                self._plug_in_1 = clone(self.po_estimator.estimator)  # pyright: ignore
+                self._plug_in_0 = clone(self.po_estimator.estimator)  # pyright: ignore
 
             if len(self.est_params) == 1:
                 self._plug_in_1.set_params(**self.est_params[0])
@@ -172,8 +181,8 @@ class TLearner(BasePluginCATEEstimator):
             # use reweighting within plug-in model
             self._fit_propensity_estimator(X, w)
             weights = self._get_importance_weights(X, w)
-            self._plug_in_0.fit(X[w == 0], y[w == 0], sample_weights=weights[w == 0])
-            self._plug_in_1.fit(X[w == 1], y[w == 1], sample_weights=weights[w == 1])
+            self._plug_in_0.fit(X[w == 0], y[w == 0], sample_weights=weights[w == 0])  # pyright: ignore
+            self._plug_in_1.fit(X[w == 1], y[w == 1], sample_weights=weights[w == 1])  # pyright: ignore
 
     def predict(self, X, return_po: bool = False):
         """
@@ -219,15 +228,16 @@ class SLearner(BasePluginCATEEstimator):
     feature).
     """
 
+    # pylint: disable-next=super-init-not-called
     def __init__(
         self,
         po_estimator,
         binary_y: bool = False,
-        propensity_estimator: bool = None,
-        weighting_strategy: str = None,
-        weight_args: dict = None,
-        extend_covs: bool = False,
-        est_params: list = None,
+        propensity_estimator: Optional[bool] = None,
+        weighting_strategy: Optional[str] = None,
+        weight_args: Optional[dict] = None,
+        extend_covs: Optional[bool] = False,
+        est_params: Optional[list] = None,
     ):
         self.po_estimator = po_estimator
         self.binary_y = binary_y
@@ -246,7 +256,7 @@ class SLearner(BasePluginCATEEstimator):
 
         if self.est_params is not None:
             if isinstance(self.po_estimator, GridSearchCV):
-                self._plug_in = clone(self.po_estimator.estimator)
+                self._plug_in = clone(self.po_estimator.estimator)  # pyright: ignore
 
             self._plug_in.set_params(**self.est_params[0])
 

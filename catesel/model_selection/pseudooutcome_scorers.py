@@ -1,6 +1,8 @@
 """"
 Pseudo-outcome scorers, using a pseudo-outcome as surrogate for CATE
 """
+# pylint: disable=attribute-defined-outside-init
+
 # Author: Alicia Curth
 import numpy as np
 from sklearn import clone
@@ -66,20 +68,20 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
     def set_est_params(self, est_params):
         if est_params is not None:
             if isinstance(est_params, list):
-                self.est_params = est_params
+                self.est_params = est_params  # type: ignore
             elif isinstance(est_params, dict):
-                self.est_params = [est_params]
+                self.est_params = [est_params]  # type: ignore
             else:
                 raise ValueError("est_params should be a list of dicts or a dict.")
 
     def _do_po_cv(self, X, y, w):
         self.po_params = []
-        temp_model_0 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)
+        temp_model_0 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)  # pyright: ignore
         temp_model_0.fit(X[w == 0], y[w == 0])
         self.po_params.append(temp_model_0.best_params_)
 
         # treated model
-        temp_model_1 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)
+        temp_model_1 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)  # pyright: ignore
         temp_model_1.fit(X[w == 1], y[w == 1])
         self.po_params.append(temp_model_1.best_params_)
 
@@ -89,9 +91,9 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
         else:
             if self.est_params is not None:
                 if isinstance(self.po_model, GridSearchCV):
-                    self.po_model = clone(self.po_model.estimator)
-                self.po_model.set_params(est_params=self.est_params)
-            self.po_model.fit(X, y_factual, w_factual)
+                    self.po_model = clone(self.po_model.estimator)  # pyright: ignore
+                self.po_model.set_params(est_params=self.est_params)  # pyright: ignore
+            self.po_model.fit(X, y_factual, w_factual)  # pyright: ignore
             if self.prop_model is not None:
                 self.prop_model.fit(X, w_factual)
             self._models_fitted = True
@@ -108,7 +110,7 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
             mu0, mu1, prop = self._impute_nuisance_components(X, p=p_true)
         else:
             # use prefit model
-            _, mu0, mu1 = self.po_model.predict(X, return_po=True)
+            _, mu0, mu1 = self.po_model.predict(X, return_po=True)  # pyright: ignore
             if p_true is not None:
                 prop = p_true
             else:
@@ -138,7 +140,7 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
 
         # if new data -- this usually does not happen, and is an artifact for benchmarking
         # experiments
-        if not n == len(self._fold_pred_masks[0]):
+        if not n == len(self._fold_pred_masks[0]):  # type: ignore
             # just use first model for now
             pred_mask = np.ones(n, dtype=bool)
             if not self.pseudo_type == "PW":
@@ -150,7 +152,7 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
 
         else:
             for idx in range(self.n_folds):
-                pred_mask = self._fold_pred_masks[idx]
+                pred_mask = self._fold_pred_masks[idx]  # type: ignore
                 if not self.pseudo_type == "PW":
                     mu_0_pred[pred_mask], mu_1_pred[pred_mask] = self._impute_outcomes(
                         X, None, None, None, pred_mask, idx
@@ -171,7 +173,7 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
         # STEP 1: fit plug-in estimators via cross-fitting
         if self.n_folds == 1:
             pred_mask = np.ones(n, dtype=bool)
-            self._fold_pred_masks[0] = pred_mask
+            self._fold_pred_masks[0] = pred_mask  # type: ignore
             # fit plug-in models
             if not self.pseudo_type == "PW":
                 mu_0_pred, mu_1_pred = self._impute_outcomes(X, y, w, pred_mask, pred_mask, 0)
@@ -196,7 +198,7 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
                 # create masks
                 pred_mask = np.zeros(n, dtype=bool)
                 pred_mask[test_index] = 1
-                self._fold_pred_masks[idx] = pred_mask
+                self._fold_pred_masks[idx] = pred_mask  # type: ignore
 
                 # fit plug-in te_estimator
                 if not self.pseudo_type == "PW":
@@ -229,11 +231,11 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
             else:
                 # fit two separate (standard) models
                 # untreated model
-                temp_model_0 = clone(self.po_model)
+                temp_model_0 = clone(self.po_model)  # pyright: ignore
 
                 if self.est_params is not None:
                     if isinstance(self.po_model, GridSearchCV):
-                        temp_model_0 = clone(self.po_model.estimator)
+                        temp_model_0 = clone(self.po_model.estimator)  # pyright: ignore
                     temp_model_0.set_params(**self.est_params[0])
                 elif self.pre_cv_po:
                     temp_model_0.set_params(**self.po_params[0])
@@ -241,10 +243,10 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
                 temp_model_0.fit(X_fit[W_fit == 0], Y_fit[W_fit == 0])
 
                 # treated model
-                temp_model_1 = clone(self.po_model)
+                temp_model_1 = clone(self.po_model)  # pyright: ignore
                 if self.est_params is not None:
                     if isinstance(self.po_model, GridSearchCV):
-                        temp_model_1 = clone(self.po_model.estimator)
+                        temp_model_1 = clone(self.po_model.estimator)  # pyright: ignore
                     if len(self.est_params) == 1:
                         temp_model_1.set_params(**self.est_params[0])
                     else:
@@ -279,7 +281,7 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
                 X_fit, W_fit = X[fit_mask, :], w[fit_mask]
 
                 # fit propensity estimator
-                temp_propensity_estimator = clone(self.prop_model)
+                temp_propensity_estimator = clone(self.prop_model)  # pyright: ignore
                 temp_propensity_estimator.fit(X_fit, W_fit)
 
                 # store estimator
@@ -316,7 +318,7 @@ class RTEScorer(PseudoOutcomeTEScorer):
             if p_true is not None:
                 prop = p_true
             else:
-                prop = self.prop_model.predict_proba(X)
+                prop = self.prop_model.predict_proba(X)  # pyright: ignore
                 if prop.ndim > 1:
                     if prop.shape[1] == 2:
                         prop = prop[:, 1]
@@ -338,7 +340,7 @@ class RTEScorer(PseudoOutcomeTEScorer):
             temp_model = clone(self.po_model)
             if self.est_params is not None:
                 if isinstance(self.po_model, GridSearchCV):
-                    temp_model = clone(self.po_model.estimator)
+                    temp_model = clone(self.po_model.estimator)  # pyright: ignore
                 temp_model.set_params(**self.est_params[0])
             temp_model.fit(X_fit, Y_fit)
             self._fold_models_po[fold_idx] = temp_model
@@ -355,7 +357,7 @@ class RTEScorer(PseudoOutcomeTEScorer):
 
     def _do_po_cv(self, X, y, w):
         self.po_params = []
-        temp_model_0 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)
+        temp_model_0 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)  # pyright: ignore
         temp_model_0.fit(X, y)
         self.po_params.append(temp_model_0.best_params_)
         self.po_model.set_params(**self.po_params[0])
@@ -367,8 +369,8 @@ class RTEScorer(PseudoOutcomeTEScorer):
         else:
             if self.est_params is not None:
                 if isinstance(self.po_model, GridSearchCV):
-                    self.po_model = clone(self.po_model.estimator)
+                    self.po_model = clone(self.po_model.estimator)  # pyright: ignore
                 self.po_model.set_params(**self.est_params[0])
             self.po_model.fit(X, y_factual)
-            self.prop_model.fit(X, w_factual)
+            self.prop_model.fit(X, w_factual)  # pyright: ignore
             self._models_fitted = True

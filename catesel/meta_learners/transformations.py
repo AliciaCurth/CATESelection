@@ -120,6 +120,6 @@ def pseudo_outcome_transformation(y, w, p, mu_0, mu_1, pseudo_type="DR"):
     elif pseudo_type == "PW":
         return pw_transformation_cate(y, w, p, mu_0, mu_1)
     elif pseudo_type == "U":
-        return u_transformation_cate(y, w, p, mu_0, mu_1)
+        return u_transformation_cate(y, w, p, mu_0, mu_1)  # type: ignore  # pylint: disable=too-many-function-args
     else:
         raise ValueError("Pseudo outcome type {} was not recognised".format(pseudo_type))

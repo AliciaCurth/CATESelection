@@ -147,7 +147,7 @@ def split_data(
     cate_full,
     n_test=0.8,
     random_state=42,
-    subset_train: int = None,  # pyright: ignore
+    subset_train: int = None,  # type: ignore
 ):
     X, X_t, y, y_t, w, w_t, mu0, mu0_t, mu1, mu1_t, cate_in, cate_out = train_test_split(
         X_full, y_full, w_full, mu0_full, mu1_full, cate_full, test_size=n_test, random_state=random_state

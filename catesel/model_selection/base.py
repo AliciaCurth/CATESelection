@@ -1,7 +1,9 @@
 """"
 Implementations of different scorer classes for CATE estimation. This code mimics
-sklearns' scoring modules in sklearn.metrics._scoring
+sklearn's scoring modules in sklearn.metrics._scoring
 """
+# pylint: disable=attribute-defined-outside-init,access-member-before-definition
+
 # Author: Alicia Curth
 import abc
 
@@ -49,11 +51,11 @@ class _BaseTEScorer:
 
     def reset_models(self):
         if hasattr(self, "po_model"):
-            if self.po_model is not None:
-                self.po_model = clone(self.po_model)
+            if self.po_model is not None:  # type: ignore
+                self.po_model = clone(self.po_model)  # type: ignore
         if hasattr(self, "prop_model"):
-            if self.prop_model is not None:
-                self.prop_model = clone(self.prop_model)
+            if self.prop_model is not None:  # type: ignore
+                self.prop_model = clone(self.prop_model)  # type: ignore
 
         if hasattr(self, "_models_fitted"):
             self._models_fitted = False

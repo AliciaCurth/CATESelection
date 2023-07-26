@@ -2,6 +2,8 @@
 Implement different reweighting/balancing strategies, as in Li et al (2018)
 """
 # Author: Alicia Curth
+from typing import Optional
+
 import numpy as np
 
 IPW_NAME = "ipw"
@@ -12,7 +14,9 @@ MATCHING_NAME = "match"
 ALL_WEIGHTING_STRATEGIES = [IPW_NAME, TRUNC_IPW_NAME, OVERLAP_NAME, MATCHING_NAME]
 
 
-def compute_importance_weights(propensity, w, weighting_strategy, weight_args: dict = None, normalize: bool = True):
+def compute_importance_weights(
+    propensity, w, weighting_strategy, weight_args: Optional[dict] = None, normalize: bool = True
+):
     if weighting_strategy not in ALL_WEIGHTING_STRATEGIES:
         raise ValueError(
             "weighting_strategy should be in "

@@ -9,7 +9,7 @@ def _get_values_only(X):
 
 
 # some utils
-def _check_is_callable(input, name: str = ""):
+def _check_is_callable(input, name: str = ""):  # pylint: disable=redefined-builtin
     if callable(input):
         pass
     else:

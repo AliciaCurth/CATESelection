@@ -1,6 +1,8 @@
 """
 Other scorers: Matching and Influence functions
 """
+# pylint: disable=attribute-defined-outside-init
+
 # Author: Alicia Curth
 
 import numpy as np
@@ -64,7 +66,7 @@ class IFTEScorer(PseudoOutcomeTEScorer):
     def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None, sample_weight=None, t_score=None):
         t_pred = estimator.predict(X, return_po=False) if t_score is None else t_score
 
-        # fit nuisance component models (as in normal pseudooutcome scoreer
+        # fit nuisance component models (as in normal pseudooutcome scorer
         if not self.plugin_prefit and not self._models_fitted:
             # fit nuisance models
             mu0, mu1, prop = self._fit_and_impute_nuisance_components(X, y_factual, w_factual, p=p_true)
@@ -74,7 +76,7 @@ class IFTEScorer(PseudoOutcomeTEScorer):
             mu0, mu1, prop = self._impute_nuisance_components(X, p=p_true)
         else:
             # use prefit model
-            _, mu0, mu1 = self.po_model.predict(X, return_po=True)
+            _, mu0, mu1 = self.po_model.predict(X, return_po=True)  # pyright: ignore
             if p_true is not None:
                 prop = p_true
             else:
@@ -89,9 +91,9 @@ class IFTEScorer(PseudoOutcomeTEScorer):
         B = 2 * w_factual * (w_factual - prop) / C
 
         mean_IF = np.mean(
-            (1 - B) * (mu1 - mu0) ** 2
-            + B * y_factual * (mu1 - mu0 - t_pred)
-            - A * (mu1 - mu0 - t_pred) ** 2
+            (1 - B) * (mu1 - mu0) ** 2  # pyright: ignore
+            + B * y_factual * (mu1 - mu0 - t_pred)  # pyright: ignore
+            - A * (mu1 - mu0 - t_pred) ** 2  # pyright: ignore
             + t_pred**2
         )
 

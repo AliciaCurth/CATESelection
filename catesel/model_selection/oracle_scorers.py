@@ -45,18 +45,18 @@ class OraclePOScorer(_BaseTEScorer):
             # score by PO performance
             return self._sign * (
                 self._score_func(
-                    t_true[0],
+                    t_true[0],  # pyright: ignore
                     mu0,
                     sample_weight=sample_weight,
                 )
                 + self._score_func(
-                    t_true[1],
+                    t_true[1],  # pyright: ignore
                     mu1,
                     sample_weight=sample_weight,
                 )
             )
         else:
-            return self._sign * (self._score_func(t_true[0], mu0) + self._score_func(t_true[1], mu1))
+            return self._sign * (self._score_func(t_true[0], mu0) + self._score_func(t_true[1], mu1))  # pyright: ignore
 
 
 class OraclePseudoOutcomeScorer(_BaseTEScorer):
