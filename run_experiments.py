@@ -177,7 +177,10 @@ def init_arg():
 
 if __name__ == "__main__":
     args = init_arg()
-    n_repeats = args.n_repeats if len(args.n_repeats) > 1 else args.n_repeats[0]
+    try:
+        n_repeats = args.n_repeats[0]
+    except TypeError:
+        n_repeats = args.n_repeats
     if args.experiment_type == "acic-simu":
         if args.setup == "A":
             grid_comparison_experiment(
