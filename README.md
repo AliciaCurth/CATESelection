@@ -1,5 +1,5 @@
 # CATESelection
-Sklearn-style implementations of model selection criteria for CATE estimation. 
+Sklearn-style implementations of model selection criteria for CATE estimation.
 
 This repo contains code to replicate the results presented in the ICML23 paper ['In Search of Insights, Not Magic Bullets: Towards Demystification of the Model Selection Dilemma in Heterogeneous Treatment Effect Estimation'](https://arxiv.org/abs/2302.02923).
 

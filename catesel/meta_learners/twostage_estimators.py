@@ -3,18 +3,20 @@ Multi-stage meta-learners for CATE; those based on pseudo-outcome regression and
 """
 # Author: Alicia Curth
 import abc
-import numpy as np
 
+import numpy as np
 from sklearn import clone
-from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
 from catesel.meta_learners.base import BaseCATEEstimator, BasePluginCATEEstimator
-from catesel.meta_learners.utils import get_name_needed_prediction_method, \
-    check_estimator_has_method
+from catesel.meta_learners.transformations import (
+    dr_transformation_cate,
+    pw_transformation_cate,
+    ra_transformation_cate,
+    u_transformation_cate,
+)
+from catesel.meta_learners.utils import check_estimator_has_method, get_name_needed_prediction_method
 from catesel.utils.base import _get_values_only
-from catesel.meta_learners.transformations import u_transformation_cate, \
-    dr_transformation_cate, \
-    ra_transformation_cate, pw_transformation_cate
 
 
 class BaseTwoStageEst(BaseCATEEstimator):
@@ -56,20 +58,23 @@ class BaseTwoStageEst(BaseCATEEstimator):
         hyperparameter grid for te-model to use in pre_cv_te search
     """
 
-    def __init__(self, te_estimator,
-                 po_estimator=None,
-                 propensity_estimator=None,
-                 binary_y: bool = False,
-                 fit_propensity_estimator: bool = True,
-                 n_folds: int = 1,
-                 avg_fold_models=False,
-                 est_params=None,
-                 random_state: int = 42,
-                 pre_cv_po=False,
-                 pre_cv_te=False,
-                 n_cv_pre=5,
-                 grid_po=None,
-                 grid_te=None):
+    def __init__(
+        self,
+        te_estimator,
+        po_estimator=None,
+        propensity_estimator=None,
+        binary_y: bool = False,
+        fit_propensity_estimator: bool = True,
+        n_folds: int = 1,
+        avg_fold_models=False,
+        est_params=None,
+        random_state: int = 42,
+        pre_cv_po=False,
+        pre_cv_te=False,
+        n_cv_pre=5,
+        grid_po=None,
+        grid_te=None,
+    ):
         # set estimators
         self.te_estimator = te_estimator
         self.po_estimator = po_estimator
@@ -126,8 +131,7 @@ class BaseTwoStageEst(BaseCATEEstimator):
             mu_0_pred, mu_1_pred, p_pred = np.zeros(n), np.zeros(n), np.zeros(n)
 
             # create folds stratified by treatment assignment to ensure balance
-            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True,
-                                       random_state=self.random_state)
+            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
             self.splitter = splitter
 
             for train_index, test_index in splitter.split(X, w):
@@ -136,8 +140,9 @@ class BaseTwoStageEst(BaseCATEEstimator):
                 pred_mask[test_index] = 1
 
                 # fit plug-in te_estimator
-                mu_0_pred[pred_mask], mu_1_pred[pred_mask], p_pred[pred_mask] = \
-                    self._first_step(X, y, w, ~pred_mask, pred_mask)
+                mu_0_pred[pred_mask], mu_1_pred[pred_mask], p_pred[pred_mask] = self._first_step(
+                    X, y, w, ~pred_mask, pred_mask
+                )
 
         if p is None or self.fit_propensity_estimator is True:
             # use estimated propensity scores
@@ -174,8 +179,7 @@ class BaseTwoStageEst(BaseCATEEstimator):
             mu_0_pred, mu_1_pred, p_pred = np.zeros(n), np.zeros(n), np.zeros(n)
 
             # create folds stratified by treatment assignment to ensure balance
-            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True,
-                                       random_state=self.random_state)
+            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
 
             self._test_idx_list = []
 
@@ -185,8 +189,9 @@ class BaseTwoStageEst(BaseCATEEstimator):
                 pred_mask[test_index] = 1
 
                 # fit plug-in te_estimator
-                mu_0_pred[pred_mask], mu_1_pred[pred_mask], p_pred[pred_mask] = \
-                    self._first_step(X, y, w, ~pred_mask, pred_mask)
+                mu_0_pred[pred_mask], mu_1_pred[pred_mask], p_pred[pred_mask] = self._first_step(
+                    X, y, w, ~pred_mask, pred_mask
+                )
 
                 self._test_idx_list.append(test_index)
 
@@ -213,7 +218,7 @@ class BaseTwoStageEst(BaseCATEEstimator):
             Predicted treatment effects
         """
         if return_po:
-            raise ValueError('Multi-stage estimators return only an estimate of CATE.')
+            raise ValueError("Multi-stage estimators return only an estimate of CATE.")
 
         if not self.avg_fold_models or self.n_folds == 1:
             # there is only a single treatment effect estimator
@@ -342,37 +347,33 @@ class BaseTwoStageEst(BaseCATEEstimator):
             self.po_estimator = clone(self.te_estimator)
 
         if self.fit_propensity_estimator and self.propensity_estimator is None:
-            raise ValueError("Need to pass propensity_estimator if you wish to fit a propensity "
-                             "estimator")
+            raise ValueError("Need to pass propensity_estimator if you wish to fit a propensity " "estimator")
 
         # check that all estimators have the attributes they should have and clone them to be safe
         if self.propensity_estimator is not None:
-            self.propensity_estimator = check_estimator_has_method(self.propensity_estimator,
-                                                                   'predict_proba',
-                                                                   'propensity_estimator',
-                                                                   return_clone=True)
+            self.propensity_estimator = check_estimator_has_method(
+                self.propensity_estimator, "predict_proba", "propensity_estimator", return_clone=True
+            )
 
         if not isinstance(self.po_estimator, BasePluginCATEEstimator):
             needed_pred_method = get_name_needed_prediction_method(self.binary_y)
-            self.po_estimator = check_estimator_has_method(self.po_estimator,
-                                                           needed_pred_method,
-                                                           'po_estimator', return_clone=True)
+            self.po_estimator = check_estimator_has_method(
+                self.po_estimator, needed_pred_method, "po_estimator", return_clone=True
+            )
 
-        self.te_estimator = check_estimator_has_method(self.te_estimator,
-                                                       'predict',
-                                                       'te_estimator', return_clone=True)
+        self.te_estimator = check_estimator_has_method(self.te_estimator, "predict", "te_estimator", return_clone=True)
         if self.pre_cv_po and self.grid_po is None:
-            raise ValueError('Can only do pre-cv-po if parameter grid grid_po is specified.')
+            raise ValueError("Can only do pre-cv-po if parameter grid grid_po is specified.")
 
         if self.pre_cv_te and self.grid_te is None:
-            raise ValueError('Can only do pre-cv-te if parameter grid grid_te is specified.')
+            raise ValueError("Can only do pre-cv-te if parameter grid grid_te is specified.")
 
         if self.est_params is not None:
             if not isinstance(self.est_params, list):
                 if isinstance(self.est_params, dict):
                     self.est_params = [self.est_params]
                 else:
-                    raise ValueError('est_params should be a list of dicts or a dict.')
+                    raise ValueError("est_params should be a list of dicts or a dict.")
 
         self._individual_checks()
 
@@ -430,6 +431,7 @@ class RALearner(BaseTwoStageEst):
     """
     RA-learner for CATE estimation, based on singly robust regression-adjusted pseudo-outcome
     """
+
     def _first_step(self, X, y, w, fit_mask, pred_mask):
         mu0_pred, mu1_pred = self._impute_pos(X, y, w, fit_mask, pred_mask)
         p_pred = np.nan  # not needed
@@ -445,6 +447,7 @@ class VirtualTwin(BaseTwoStageEst):
     Virtual Twin for CATE estimation. Very similar to T-/S-learner, but instead of outputting
     mu1(x)-mu0(x), regresses mu1(x)-mu0(x) on X with a second stage model.
     """
+
     def _first_step(self, X, y, w, fit_mask, pred_mask):
         mu0_pred, mu1_pred = self._impute_pos(X, y, w, fit_mask, pred_mask)
         p_pred = np.nan  # not needed
@@ -498,8 +501,11 @@ class RLearner(BaseTwoStageEst):
             self._te_model_list = []
             for i in range(self.n_folds):
                 temp_est_i = clone(self.te_estimator)
-                temp_est_i.fit(X[self._test_idx_list[i], :], pseudo_outcome[self._test_idx_list[i]],
-                               sample_weight=((w - p) ** 2)[self._test_idx_list[i]])
+                temp_est_i.fit(
+                    X[self._test_idx_list[i], :],
+                    pseudo_outcome[self._test_idx_list[i]],
+                    sample_weight=((w - p) ** 2)[self._test_idx_list[i]],
+                )
                 self._te_model_list.append(temp_est_i)
         else:
             self.te_estimator.fit(X, pseudo_outcome, sample_weight=(w - p) ** 2)
@@ -516,33 +522,42 @@ class XLearner(BaseTwoStageEst):
     tau(x) = g(x) tau_0(x) + (1-g(x)) tau_1(x)
     """
 
-    def __init__(self, te_estimator, po_estimator=None, propensity_estimator=None,
-                 binary_y: bool = False, fit_propensity_estimator: bool = True,
-                 weighting_strategy='prop'):
-        super().__init__(te_estimator=te_estimator, po_estimator=po_estimator,
-                         propensity_estimator=propensity_estimator, binary_y=binary_y,
-                         fit_propensity_estimator=fit_propensity_estimator, n_folds=1)
+    def __init__(
+        self,
+        te_estimator,
+        po_estimator=None,
+        propensity_estimator=None,
+        binary_y: bool = False,
+        fit_propensity_estimator: bool = True,
+        weighting_strategy="prop",
+    ):
+        super().__init__(
+            te_estimator=te_estimator,
+            po_estimator=po_estimator,
+            propensity_estimator=propensity_estimator,
+            binary_y=binary_y,
+            fit_propensity_estimator=fit_propensity_estimator,
+            n_folds=1,
+        )
         self.weighting_strategy = weighting_strategy
 
     def _individual_checks(self):
         # check if weighting functions
         if self.weighting_strategy.isnumeric():
             if self.weighting_strategy > 1 or self.weighting_strategy < 0:
-                raise ValueError('Numeric weighting_strategy should be in [0, 1]')
+                raise ValueError("Numeric weighting_strategy should be in [0, 1]")
             pass
         elif type(self.weighting_strategy) is str:
-            if self.weighting_strategy == 'prop':
+            if self.weighting_strategy == "prop":
                 pass
-            elif self.weighting_strategy == '1-prop':
+            elif self.weighting_strategy == "1-prop":
                 pass
             else:
-                raise ValueError('Weighting strategy should be numeric, "prop", "1-prop" or a'
-                                 'callable.')
+                raise ValueError('Weighting strategy should be numeric, "prop", "1-prop" or a' "callable.")
         elif callable(self.weighting_strategy):
             pass
         else:
-            raise ValueError('Weighting strategy should be numeric, "prop", "1-prop" or a'
-                             'callable.')
+            raise ValueError('Weighting strategy should be numeric, "prop", "1-prop" or a' "callable.")
 
     def _first_step(self, X, y, w, fit_mask, pred_mask):
         mu0_pred, mu1_pred = self._impute_pos(X, y, w, fit_mask, pred_mask)
@@ -559,7 +574,7 @@ class XLearner(BaseTwoStageEst):
         self._te_estimator_1 = clone(self.te_estimator)
         self._te_estimator_1.fit(X[w == 1], pseudo_1)
 
-        if self.weighting_strategy == 'prop' or self.weighting_strategy == '1-prop':
+        if self.weighting_strategy == "prop" or self.weighting_strategy == "1-prop":
             self.propensity_estimator.fit(X, w)
 
     def predict(self, X, return_po=False):
@@ -578,17 +593,17 @@ class XLearner(BaseTwoStageEst):
             Predicted treatment effects
         """
         if return_po:
-            raise ValueError('Multi-stage estimators return only an estimate of CATE.')
+            raise ValueError("Multi-stage estimators return only an estimate of CATE.")
 
         tau0_pred = self._te_estimator_0.predict(X)
         tau1_pred = self._te_estimator_1.predict(X)
 
-        if self.weighting_strategy == 'prop' or self.weighting_strategy == '1-prop':
+        if self.weighting_strategy == "prop" or self.weighting_strategy == "1-prop":
             prop_pred = self.propensity_estimator.predict(X)
 
-        if self.weighting_strategy == 'prop':
+        if self.weighting_strategy == "prop":
             weight = prop_pred
-        elif self.weighting_strategy == '1-prop':
+        elif self.weighting_strategy == "1-prop":
             weight = 1 - prop_pred
         elif self.weighting_strategy.isnumeric():
             weight = self.weighting_strategy

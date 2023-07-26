@@ -3,13 +3,12 @@ Base for CATE meta-learners
 """
 # Author: Alicia Curth
 import abc
-import numpy as np
 
+import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin, clone
 from sklearn.model_selection import GridSearchCV
 
-from ..meta_learners.utils import get_name_needed_prediction_method,  \
-    check_estimator_has_method
+from ..meta_learners.utils import check_estimator_has_method, get_name_needed_prediction_method
 from ..utils.base import _get_values_only
 from ..utils.weight_utils import compute_importance_weights
 
@@ -18,6 +17,7 @@ class BaseCATEEstimator(BaseEstimator, RegressorMixin, abc.ABC):
     """
     Base class for treatment effect models
     """
+
     def __init__(self):
         pass
 
@@ -65,10 +65,10 @@ class BaseCATEEstimator(BaseEstimator, RegressorMixin, abc.ABC):
     def _check_inputs(w, p):
         if p is not None:
             if np.sum(p > 1) > 0 or np.sum(p < 0) > 0:
-                raise ValueError('p should be in [0,1]')
+                raise ValueError("p should be in [0,1]")
 
         if not ((w == 0) | (w == 1)).all():
-            raise ValueError('W should be binary')
+            raise ValueError("W should be binary")
 
 
 class BasePluginCATEEstimator(BaseCATEEstimator):
@@ -87,11 +87,16 @@ class BasePluginCATEEstimator(BaseCATEEstimator):
     est_params: dict or list of dicts, default None
         Hyperparameters to be passed to po-estimator
     """
-    def __init__(self, po_estimator, binary_y: bool = False,
-                 propensity_estimator: bool = None,
-                 weighting_strategy: str = None,
-                 weight_args: dict = None,
-                 est_params: list = None):
+
+    def __init__(
+        self,
+        po_estimator,
+        binary_y: bool = False,
+        propensity_estimator: bool = None,
+        weighting_strategy: str = None,
+        weight_args: dict = None,
+        est_params: list = None,
+    ):
         self.po_estimator = po_estimator
         self.binary_y = binary_y
         self.propensity_estimator = propensity_estimator
@@ -101,8 +106,7 @@ class BasePluginCATEEstimator(BaseCATEEstimator):
 
     def _fit_propensity_estimator(self, X, w):
         if self.propensity_estimator is None:
-            raise ValueError("Can only fit propensity estimator if propensity_estimator is not "
-                             "None.")
+            raise ValueError("Can only fit propensity estimator if propensity_estimator is not " "None.")
         self.propensity_estimator.fit(X, w)
 
     def _get_importance_weights(self, X, w):
@@ -110,18 +114,17 @@ class BasePluginCATEEstimator(BaseCATEEstimator):
         if p_pred.ndim > 1:
             if p_pred.shape[1] == 2:
                 p_pred = p_pred[:, 1]
-        return compute_importance_weights(p_pred, w, self.weighting_strategy, self.weight_args,
-                                          normalize=True)
+        return compute_importance_weights(p_pred, w, self.weighting_strategy, self.weight_args, normalize=True)
 
 
 class TLearner(BasePluginCATEEstimator):
     """
     T-learner for treatment effect estimation (Two learners, fit separately)
     """
+
     def _prepare_self(self):
         needed_pred_method = get_name_needed_prediction_method(self.binary_y)
-        check_estimator_has_method(self.po_estimator, needed_pred_method,
-                                   'po_estimator', return_clone=False)
+        check_estimator_has_method(self.po_estimator, needed_pred_method, "po_estimator", return_clone=False)
 
         # to make sure that we are starting with clean objects
         self._plug_in_0 = clone(self.po_estimator)
@@ -157,7 +160,9 @@ class TLearner(BasePluginCATEEstimator):
         self._prepare_self()
         self._check_inputs(w, p)
         if len(w.shape) > 1:
-            w = w.reshape(-1, ).copy()
+            w = w.reshape(
+                -1,
+            ).copy()
         if self.weighting_strategy is None:
             # standard T-learner
             self._plug_in_0.fit(X[w == 0], y[w == 0])
@@ -213,13 +218,17 @@ class SLearner(BasePluginCATEEstimator):
     S-learner for treatment effect estimation (single learner, treatment indicator just another
     feature).
     """
-    def __init__(self, po_estimator, binary_y: bool = False,
-                 propensity_estimator: bool = None,
-                 weighting_strategy: str = None,
-                 weight_args: dict = None,
-                 extend_covs: bool = False,
-                 est_params: list = None
-                 ):
+
+    def __init__(
+        self,
+        po_estimator,
+        binary_y: bool = False,
+        propensity_estimator: bool = None,
+        weighting_strategy: str = None,
+        weight_args: dict = None,
+        extend_covs: bool = False,
+        est_params: list = None,
+    ):
         self.po_estimator = po_estimator
         self.binary_y = binary_y
         self.propensity_estimator = propensity_estimator
@@ -230,8 +239,7 @@ class SLearner(BasePluginCATEEstimator):
 
     def _prepare_self(self):
         needed_pred_method = get_name_needed_prediction_method(self.binary_y)
-        check_estimator_has_method(self.po_estimator, needed_pred_method,
-                                   'po_estimator', return_clone=False)
+        check_estimator_has_method(self.po_estimator, needed_pred_method, "po_estimator", return_clone=False)
 
         # to make sure that we are starting with clean objects
         self._plug_in = clone(self.po_estimator)
@@ -307,8 +315,8 @@ class SLearner(BasePluginCATEEstimator):
             X_ext_0 = np.concatenate((X, w_0), axis=1)
             X_ext_1 = np.concatenate((X, w_1), axis=1)
         else:
-            X_ext_0 = np.concatenate((X, w_0, X*w_0), axis=1)
-            X_ext_1 = np.concatenate((X, w_1, X*w_1), axis=1)
+            X_ext_0 = np.concatenate((X, w_0, X * w_0), axis=1)
+            X_ext_1 = np.concatenate((X, w_1, X * w_1), axis=1)
 
         if self.binary_y:
             y_0 = self._plug_in.predict_proba(X_ext_0)

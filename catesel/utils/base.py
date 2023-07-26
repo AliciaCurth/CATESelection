@@ -9,9 +9,10 @@ def _get_values_only(X):
 
 
 # some utils
-def _check_is_callable(input, name: str = ''):
+def _check_is_callable(input, name: str = ""):
     if callable(input):
         pass
     else:
-        raise ValueError('Input {} needs to be a callable function so it can '
-                         'be used to create simulation.'.format(name))
+        raise ValueError(
+            "Input {} needs to be a callable function so it can " "be used to create simulation.".format(name)
+        )
