@@ -24,3 +24,4 @@ dist/
 .vscode/
 log.txt
 run_exp_CUSTOM.sh
+results/plots/*.pdf
