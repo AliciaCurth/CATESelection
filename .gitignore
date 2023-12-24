@@ -14,7 +14,14 @@
 */lib/
 */lib64/
 */share/
-*.cfg
+.mypy_cache/
 .pytest_cache
 data/
 dist/
+
+# Custom:
+.dev/
+.vscode/
+log.txt
+run_exp_CUSTOM.sh
+results/plots/*.pdf

@@ -1,27 +1,39 @@
 """"
 Pseudo-outcome scorers, using a pseudo-outcome as surrogate for CATE
 """
+# pylint: disable=attribute-defined-outside-init
+
 # Author: Alicia Curth
 import numpy as np
-
 from sklearn import clone
-from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
-from catesel.meta_learners.transformations import pseudo_outcome_transformation
-from catesel.utils.base import _get_values_only
 from catesel.meta_learners.base import BasePluginCATEEstimator
+from catesel.meta_learners.transformations import pseudo_outcome_transformation
 from catesel.model_selection.base import _BaseTEScorer
+from catesel.utils.base import _get_values_only
 
 
 class PseudoOutcomeTEScorer(_BaseTEScorer):
     # CATE estimator scorer based on pseudo outcomes for CATE estimation: imputes pseudo
     # outcomes on validation data (or uses prefit model) and scores against that
-    def __init__(self, score_func, sign, po_model=None, prop_model=None,
-        plugin_prefit=False, pseudo_type = 'DR', n_folds = 3, binary_y=False,
-                 random_state: int = 42, fit_propensity_estimator: bool = True,
-                 pre_cv_po=False, grid_po=None):
+    def __init__(
+        self,
+        score_func,
+        sign,
+        po_model=None,
+        prop_model=None,
+        plugin_prefit=False,
+        pseudo_type="DR",
+        n_folds=3,
+        binary_y=False,
+        random_state: int = 42,
+        fit_propensity_estimator: bool = True,
+        pre_cv_po=False,
+        grid_po=None,
+    ):
         self.po_model = po_model
-        self.plugin_prefit=plugin_prefit
+        self.plugin_prefit = plugin_prefit
         self.prop_model = prop_model
         self.pseudo_type = pseudo_type
         self.n_folds = n_folds
@@ -56,20 +68,20 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
     def set_est_params(self, est_params):
         if est_params is not None:
             if isinstance(est_params, list):
-                self.est_params = est_params
+                self.est_params = est_params  # type: ignore
             elif isinstance(est_params, dict):
-                self.est_params = [est_params]
+                self.est_params = [est_params]  # type: ignore
             else:
-                raise ValueError('est_params should be a list of dicts or a dict.')
+                raise ValueError("est_params should be a list of dicts or a dict.")
 
     def _do_po_cv(self, X, y, w):
         self.po_params = []
-        temp_model_0 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)
+        temp_model_0 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)  # pyright: ignore
         temp_model_0.fit(X[w == 0], y[w == 0])
         self.po_params.append(temp_model_0.best_params_)
 
         # treated model
-        temp_model_1 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)
+        temp_model_1 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)  # pyright: ignore
         temp_model_1.fit(X[w == 1], y[w == 1])
         self.po_params.append(temp_model_1.best_params_)
 
@@ -79,81 +91,79 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
         else:
             if self.est_params is not None:
                 if isinstance(self.po_model, GridSearchCV):
-                    self.po_model = clone(self.po_model.estimator)
-                self.po_model.set_params(est_params=self.est_params)
-            self.po_model.fit(X, y_factual, w_factual)
+                    self.po_model = clone(self.po_model.estimator)  # pyright: ignore
+                self.po_model.set_params(est_params=self.est_params)  # pyright: ignore
+            self.po_model.fit(X, y_factual, w_factual)  # pyright: ignore
             if self.prop_model is not None:
                 self.prop_model.fit(X, w_factual)
             self._models_fitted = True
 
-    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None,
-               sample_weight=None, t_score=None):
+    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None, sample_weight=None, t_score=None):
         t_pred = estimator.predict(X, return_po=False) if t_score is None else t_score
 
         if not self.plugin_prefit and not self._models_fitted:
             # fit nuisance models
-            mu0, mu1, prop = self._fit_and_impute_nuisance_components(X, y_factual,
-                                                                  w_factual,
-                                                                  p=p_true)
+            mu0, mu1, prop = self._fit_and_impute_nuisance_components(X, y_factual, w_factual, p=p_true)
             self._models_fitted = True
         elif not self.plugin_prefit and self._models_fitted:
             # use nuisance models from storage
             mu0, mu1, prop = self._impute_nuisance_components(X, p=p_true)
         else:
             # use prefit model
-            _, mu0, mu1 = self.po_model.predict(X, return_po=True)
+            _, mu0, mu1 = self.po_model.predict(X, return_po=True)  # pyright: ignore
             if p_true is not None:
                 prop = p_true
             else:
                 if self.prop_model is not None:
-                    prop =self.prop_model.predict_proba(X)[:, 1]
+                    prop = self.prop_model.predict_proba(X)[:, 1]
                 else:
                     prop = np.nan
 
-        t_pseudo = pseudo_outcome_transformation(y_factual, w_factual, prop, mu0, mu1,
-                                                 pseudo_type=self.pseudo_type)
+        t_pseudo = pseudo_outcome_transformation(y_factual, w_factual, prop, mu0, mu1, pseudo_type=self.pseudo_type)
 
         if sample_weight is not None:
-            return self._sign * self._score_func(t_pseudo, t_pred, sample_weight=sample_weight,
-                                               )
+            return self._sign * self._score_func(
+                t_pseudo,
+                t_pred,
+                sample_weight=sample_weight,
+            )
         else:
             return self._sign * self._score_func(t_pseudo, t_pred)
 
     def _impute_nuisance_components(self, X, p=None):
         # impute the nuisance components from saved models
         if not self._models_fitted:
-            raise ValueError('Internal models are not fitted')
+            raise ValueError("Internal models are not fitted")
 
         n, _ = X.shape
         mu_0_pred, mu_1_pred, p_pred = np.zeros(n), np.zeros(n), np.zeros(n)
 
         # if new data -- this usually does not happen, and is an artifact for benchmarking
         # experiments
-        if not n == len(self._fold_pred_masks[0]):
+        if not n == len(self._fold_pred_masks[0]):  # type: ignore
             # just use first model for now
             pred_mask = np.ones(n, dtype=bool)
-            if not self.pseudo_type == 'PW':
-                mu_0_pred[pred_mask], mu_1_pred[pred_mask] = self._impute_outcomes(X, None, None, None,
-                                                                 pred_mask, 0)
-            if self.pseudo_type == 'DR' or self.pseudo_type == 'PW' or self.pseudo_type == 'R':
+            if not self.pseudo_type == "PW":
+                mu_0_pred[pred_mask], mu_1_pred[pred_mask] = self._impute_outcomes(X, None, None, None, pred_mask, 0)
+            if self.pseudo_type == "DR" or self.pseudo_type == "PW" or self.pseudo_type == "R":
                 p_pred[pred_mask] = self._impute_propensity(X, None, None, pred_mask, 0)
             else:
                 p_pred[pred_mask] = np.nan
 
         else:
             for idx in range(self.n_folds):
+                pred_mask = self._fold_pred_masks[idx]  # type: ignore
+                if not self.pseudo_type == "PW":
+                    mu_0_pred[pred_mask], mu_1_pred[pred_mask] = self._impute_outcomes(
+                        X, None, None, None, pred_mask, idx
+                    )
 
-                pred_mask = self._fold_pred_masks[idx]
-                if not self.pseudo_type == 'PW':
-                    mu_0_pred[pred_mask], mu_1_pred[pred_mask] = \
-                    self._impute_outcomes(X, None, None, None, pred_mask, idx)
-
-                if self.pseudo_type == 'DR' or self.pseudo_type == 'PW' or self.pseudo_type == 'R':
+                if self.pseudo_type == "DR" or self.pseudo_type == "PW" or self.pseudo_type == "R":
                     p_pred[pred_mask] = self._impute_propensity(X, None, None, pred_mask, idx)
                 else:
                     p_pred[pred_mask] = np.nan
 
-        return mu_0_pred, mu_1_pred,  p_pred if (self.fit_propensity_estimator or p is None) else p
+        return mu_0_pred, mu_1_pred, p_pred if (self.fit_propensity_estimator or p is None) else p
 
     def _fit_and_impute_nuisance_components(self, X, y, w, p=None):
         # fit nuisance components and then save
@@ -163,14 +173,14 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
         # STEP 1: fit plug-in estimators via cross-fitting
         if self.n_folds == 1:
             pred_mask = np.ones(n, dtype=bool)
-            self._fold_pred_masks[0] = pred_mask
+            self._fold_pred_masks[0] = pred_mask  # type: ignore
             # fit plug-in models
-            if not self.pseudo_type == 'PW':
+            if not self.pseudo_type == "PW":
                 mu_0_pred, mu_1_pred = self._impute_outcomes(X, y, w, pred_mask, pred_mask, 0)
             else:
                 mu_0_pred, mu_1_pred = None, None
 
-            if self.pseudo_type == 'DR' or self.pseudo_type == 'PW' or self.pseudo_type == 'R':
+            if self.pseudo_type == "DR" or self.pseudo_type == "PW" or self.pseudo_type == "R":
                 p_pred = self._impute_propensity(X, w, pred_mask, pred_mask, 0)
             else:
                 p_pred = np.nan
@@ -182,32 +192,30 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
             mu_0_pred, mu_1_pred, p_pred = np.zeros(n), np.zeros(n), np.zeros(n)
 
             # create folds stratified by treatment assignment to ensure balance
-            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True,
-                                       random_state=self.random_state)
+            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
             idx = 0
             for train_index, test_index in splitter.split(X, w):
                 # create masks
                 pred_mask = np.zeros(n, dtype=bool)
                 pred_mask[test_index] = 1
-                self._fold_pred_masks[idx] = pred_mask
+                self._fold_pred_masks[idx] = pred_mask  # type: ignore
 
                 # fit plug-in te_estimator
-                if not self.pseudo_type == 'PW':
-                    mu_0_pred[pred_mask], mu_1_pred[pred_mask] = \
-                    self._impute_outcomes(X, y, w, ~pred_mask, pred_mask, idx)
+                if not self.pseudo_type == "PW":
+                    mu_0_pred[pred_mask], mu_1_pred[pred_mask] = self._impute_outcomes(
+                        X, y, w, ~pred_mask, pred_mask, idx
+                    )
 
-                if self.pseudo_type == 'DR' or self.pseudo_type == 'PW' or self.pseudo_type == 'R':
+                if self.pseudo_type == "DR" or self.pseudo_type == "PW" or self.pseudo_type == "R":
                     p_pred[pred_mask] = self._impute_propensity(X, w, ~pred_mask, pred_mask, idx)
                 else:
                     p_pred[pred_mask] = np.nan
 
                 idx += 1
 
-        return mu_0_pred, mu_1_pred, p_pred if (self.fit_propensity_estimator or p is
-                                                None) else p
+        return mu_0_pred, mu_1_pred, p_pred if (self.fit_propensity_estimator or p is None) else p
 
     def _impute_outcomes(self, X, y, w, fit_mask, pred_mask, fold_idx):
-
         if not self._models_fitted:
             # split sample
             X_fit, Y_fit, W_fit = X[fit_mask, :], y[fit_mask], w[fit_mask]
@@ -216,18 +224,18 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
                 # allows first stage model to be e.g. S- or T-learner
                 temp_model = clone(self.po_model)
                 if self.est_params is not None:
-                    temp_model.set_params(est_params = self.est_params)
+                    temp_model.set_params(est_params=self.est_params)
                 temp_model.fit(X_fit, Y_fit, W_fit)
                 self._fold_models_po[fold_idx] = temp_model
 
             else:
                 # fit two separate (standard) models
                 # untreated model
-                temp_model_0 = clone(self.po_model)
+                temp_model_0 = clone(self.po_model)  # pyright: ignore
 
                 if self.est_params is not None:
                     if isinstance(self.po_model, GridSearchCV):
-                        temp_model_0 = clone(self.po_model.estimator)
+                        temp_model_0 = clone(self.po_model.estimator)  # pyright: ignore
                     temp_model_0.set_params(**self.est_params[0])
                 elif self.pre_cv_po:
                     temp_model_0.set_params(**self.po_params[0])
@@ -235,10 +243,10 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
                 temp_model_0.fit(X_fit[W_fit == 0], Y_fit[W_fit == 0])
 
                 # treated model
-                temp_model_1 = clone(self.po_model)
+                temp_model_1 = clone(self.po_model)  # pyright: ignore
                 if self.est_params is not None:
                     if isinstance(self.po_model, GridSearchCV):
-                        temp_model_1 = clone(self.po_model.estimator)
+                        temp_model_1 = clone(self.po_model.estimator)  # pyright: ignore
                     if len(self.est_params) == 1:
                         temp_model_1.set_params(**self.est_params[0])
                     else:
@@ -250,8 +258,7 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
                 self._fold_models_po[fold_idx] = [temp_model_0, temp_model_1]
 
         if isinstance(self.po_model, BasePluginCATEEstimator):
-            _, mu_0_pred, mu_1_pred = self._fold_models_po[fold_idx].predict(X[pred_mask, :],
-                                                                                 return_po=True)
+            _, mu_0_pred, mu_1_pred = self._fold_models_po[fold_idx].predict(X[pred_mask, :], return_po=True)
         else:
             if self.binary_y:
                 mu_0_pred = self._fold_models_po[fold_idx][0].predict_proba(X[pred_mask, :])
@@ -274,7 +281,7 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
                 X_fit, W_fit = X[fit_mask, :], w[fit_mask]
 
                 # fit propensity estimator
-                temp_propensity_estimator = clone(self.prop_model)
+                temp_propensity_estimator = clone(self.prop_model)  # pyright: ignore
                 temp_propensity_estimator.fit(X_fit, W_fit)
 
                 # store estimator
@@ -293,18 +300,14 @@ class PseudoOutcomeTEScorer(_BaseTEScorer):
 
 
 class RTEScorer(PseudoOutcomeTEScorer):
-    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None,
-               sample_weight=None, t_score=None):
-
+    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None, sample_weight=None, t_score=None):
         # override parent class: we need different loss function
 
         t_pred = estimator.predict(X, return_po=False) if t_score is None else t_score
 
         if not self.plugin_prefit and not self._models_fitted:
             # fit nuisance models
-            mu, _, prop = self._fit_and_impute_nuisance_components(X, y_factual,
-                                                                  w_factual,
-                                                                  p=p_true)
+            mu, _, prop = self._fit_and_impute_nuisance_components(X, y_factual, w_factual, p=p_true)
             self._models_fitted = True
         elif not self.plugin_prefit and self._models_fitted:
             # use nuisance models from storage
@@ -315,17 +318,18 @@ class RTEScorer(PseudoOutcomeTEScorer):
             if p_true is not None:
                 prop = p_true
             else:
-                prop =self.prop_model.predict_proba(X)
+                prop = self.prop_model.predict_proba(X)  # pyright: ignore
                 if prop.ndim > 1:
                     if prop.shape[1] == 2:
                         prop = prop[:, 1]
 
         # construct loss function from mu and prop
         if sample_weight is None:
-            return np.mean(((y_factual - mu) - t_pred*(w_factual - prop))**2)
+            return np.mean(((y_factual - mu) - t_pred * (w_factual - prop)) ** 2)
         else:
-            return np.mean(sample_weight*((y_factual - mu) - t_pred*(w_factual -
-                                                                     prop))**2)/np.sum(sample_weight)
+            return np.mean(sample_weight * ((y_factual - mu) - t_pred * (w_factual - prop)) ** 2) / np.sum(
+                sample_weight
+            )
 
     def _impute_outcomes(self, X, y, w, fit_mask, pred_mask, fold_idx):
         # overwrite parent class: for RLearner we need unconditional mean
@@ -336,7 +340,7 @@ class RTEScorer(PseudoOutcomeTEScorer):
             temp_model = clone(self.po_model)
             if self.est_params is not None:
                 if isinstance(self.po_model, GridSearchCV):
-                    temp_model = clone(self.po_model.estimator)
+                    temp_model = clone(self.po_model.estimator)  # pyright: ignore
                 temp_model.set_params(**self.est_params[0])
             temp_model.fit(X_fit, Y_fit)
             self._fold_models_po[fold_idx] = temp_model
@@ -353,7 +357,7 @@ class RTEScorer(PseudoOutcomeTEScorer):
 
     def _do_po_cv(self, X, y, w):
         self.po_params = []
-        temp_model_0 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)
+        temp_model_0 = GridSearchCV(self.po_model, param_grid=self.grid_po, cv=self.n_folds)  # pyright: ignore
         temp_model_0.fit(X, y)
         self.po_params.append(temp_model_0.best_params_)
         self.po_model.set_params(**self.po_params[0])
@@ -365,8 +369,8 @@ class RTEScorer(PseudoOutcomeTEScorer):
         else:
             if self.est_params is not None:
                 if isinstance(self.po_model, GridSearchCV):
-                    self.po_model = clone(self.po_model.estimator)
+                    self.po_model = clone(self.po_model.estimator)  # pyright: ignore
                 self.po_model.set_params(**self.est_params[0])
             self.po_model.fit(X, y_factual)
-            self.prop_model.fit(X, w_factual)
+            self.prop_model.fit(X, w_factual)  # pyright: ignore
             self._models_fitted = True

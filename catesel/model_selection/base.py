@@ -1,9 +1,12 @@
 """"
 Implementations of different scorer classes for CATE estimation. This code mimics
-sklearns' scoring modules in sklearn.metrics._scoring
+sklearn's scoring modules in sklearn.metrics._scoring
 """
+# pylint: disable=attribute-defined-outside-init,access-member-before-definition
+
 # Author: Alicia Curth
 import abc
+
 from sklearn import clone
 
 
@@ -12,8 +15,7 @@ class _BaseTEScorer:
         self._score_func = score_func
         self._sign = sign
 
-    def __call__(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None,
-                 sample_weight=None, t_score=None):
+    def __call__(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None, sample_weight=None, t_score=None):
         """Evaluate predicted target values for X relative to y_factual or t_true
 
         Parameters
@@ -39,21 +41,21 @@ class _BaseTEScorer:
         score : float
             Score function applied to prediction of estimator on X.
         """
-        return self._score(estimator, X, y_factual, w_factual, p_true, t_true,
-                           sample_weight=sample_weight, t_score=t_score)
+        return self._score(
+            estimator, X, y_factual, w_factual, p_true, t_true, sample_weight=sample_weight, t_score=t_score
+        )
 
     @abc.abstractmethod
-    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None,
-               sample_weight=None, t_score=None):
+    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None, sample_weight=None, t_score=None):
         pass
 
     def reset_models(self):
-        if hasattr(self, 'po_model'):
-            if self.po_model is not None:
-                self.po_model = clone(self.po_model)
-        if hasattr(self, 'prop_model'):
-            if self.prop_model is not None:
-                self.prop_model = clone(self.prop_model)
+        if hasattr(self, "po_model"):
+            if self.po_model is not None:  # type: ignore
+                self.po_model = clone(self.po_model)  # type: ignore
+        if hasattr(self, "prop_model"):
+            if self.prop_model is not None:  # type: ignore
+                self.prop_model = clone(self.prop_model)  # type: ignore
 
-        if hasattr(self, '_models_fitted'):
+        if hasattr(self, "_models_fitted"):
             self._models_fitted = False

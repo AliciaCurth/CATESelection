@@ -83,7 +83,7 @@ def ra_transformation_cate(y, w, p, mu_0, mu_1):
     res: array-like of shape (n_samples,)
         Regression adjusted transformation
     """
-    return w * (y - mu_0) + (1-w) * (mu_1 - y)
+    return w * (y - mu_0) + (1 - w) * (mu_1 - y)
 
 
 def u_transformation_cate(y, w, p, mu):
@@ -109,17 +109,17 @@ def u_transformation_cate(y, w, p, mu):
     res: array-like of shape (n_samples,)
         Regression adjusted transformation
     """
-    return (y - mu)/(w - p)
+    return (y - mu) / (w - p)
 
 
-def pseudo_outcome_transformation(y, w, p, mu_0, mu_1, pseudo_type='DR'):
-    if pseudo_type == 'DR':
+def pseudo_outcome_transformation(y, w, p, mu_0, mu_1, pseudo_type="DR"):
+    if pseudo_type == "DR":
         return dr_transformation_cate(y, w, p, mu_0, mu_1)
-    elif pseudo_type == 'RA':
+    elif pseudo_type == "RA":
         return ra_transformation_cate(y, w, p, mu_0, mu_1)
-    elif pseudo_type == 'PW':
+    elif pseudo_type == "PW":
         return pw_transformation_cate(y, w, p, mu_0, mu_1)
-    elif pseudo_type == 'U':
-        return u_transformation_cate(y, w, p, mu_0, mu_1)
+    elif pseudo_type == "U":
+        return u_transformation_cate(y, w, p, mu_0, mu_1)  # type: ignore  # pylint: disable=too-many-function-args
     else:
-        raise ValueError('Pseudo outcome type {} was not recognised'.format(pseudo_type))
+        raise ValueError("Pseudo outcome type {} was not recognised".format(pseudo_type))

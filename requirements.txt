@@ -1,0 +1,11 @@
+gdown
+numpy
+pandas<2
+scikit-learn<1.2
+scipy
+xgboost
+
+# For plots/notebooks, uncomment:
+# jupyter
+# matplotlib
+# seaborn

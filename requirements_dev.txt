@@ -1,0 +1,7 @@
+bandit[toml]
+black[jupyter]
+flake8
+isort
+mypy
+pre-commit
+pylint

@@ -3,18 +3,20 @@ Multi-stage meta-learners for CATE; those based on pseudo-outcome regression and
 """
 # Author: Alicia Curth
 import abc
-import numpy as np
 
+import numpy as np
 from sklearn import clone
-from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.model_selection import GridSearchCV, StratifiedKFold
 
 from catesel.meta_learners.base import BaseCATEEstimator, BasePluginCATEEstimator
-from catesel.meta_learners.utils import get_name_needed_prediction_method, \
-    check_estimator_has_method
+from catesel.meta_learners.transformations import (
+    dr_transformation_cate,
+    pw_transformation_cate,
+    ra_transformation_cate,
+    u_transformation_cate,
+)
+from catesel.meta_learners.utils import check_estimator_has_method, get_name_needed_prediction_method
 from catesel.utils.base import _get_values_only
-from catesel.meta_learners.transformations import u_transformation_cate, \
-    dr_transformation_cate, \
-    ra_transformation_cate, pw_transformation_cate
 
 
 class BaseTwoStageEst(BaseCATEEstimator):
@@ -56,20 +58,23 @@ class BaseTwoStageEst(BaseCATEEstimator):
         hyperparameter grid for te-model to use in pre_cv_te search
     """
 
-    def __init__(self, te_estimator,
-                 po_estimator=None,
-                 propensity_estimator=None,
-                 binary_y: bool = False,
-                 fit_propensity_estimator: bool = True,
-                 n_folds: int = 1,
-                 avg_fold_models=False,
-                 est_params=None,
-                 random_state: int = 42,
-                 pre_cv_po=False,
-                 pre_cv_te=False,
-                 n_cv_pre=5,
-                 grid_po=None,
-                 grid_te=None):
+    def __init__(
+        self,
+        te_estimator,
+        po_estimator=None,
+        propensity_estimator=None,
+        binary_y: bool = False,
+        fit_propensity_estimator: bool = True,
+        n_folds: int = 1,
+        avg_fold_models=False,
+        est_params=None,
+        random_state: int = 42,
+        pre_cv_po=False,
+        pre_cv_te=False,
+        n_cv_pre=5,
+        grid_po=None,
+        grid_te=None,
+    ):
         # set estimators
         self.te_estimator = te_estimator
         self.po_estimator = po_estimator
@@ -120,14 +125,13 @@ class BaseTwoStageEst(BaseCATEEstimator):
         if self.n_folds == 1:
             pred_mask = np.ones(n, dtype=bool)
             # fit plug-in models
-            mu_0_pred, mu_1_pred, p_pred = self._first_step(X, y, w, pred_mask, pred_mask)
+            mu_0_pred, mu_1_pred, p_pred = self._first_step(X, y, w, pred_mask, pred_mask)  # pyright: ignore
 
         else:
             mu_0_pred, mu_1_pred, p_pred = np.zeros(n), np.zeros(n), np.zeros(n)
 
             # create folds stratified by treatment assignment to ensure balance
-            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True,
-                                       random_state=self.random_state)
+            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
             self.splitter = splitter
 
             for train_index, test_index in splitter.split(X, w):
@@ -136,8 +140,9 @@ class BaseTwoStageEst(BaseCATEEstimator):
                 pred_mask[test_index] = 1
 
                 # fit plug-in te_estimator
-                mu_0_pred[pred_mask], mu_1_pred[pred_mask], p_pred[pred_mask] = \
-                    self._first_step(X, y, w, ~pred_mask, pred_mask)
+                mu_0_pred[pred_mask], mu_1_pred[pred_mask], p_pred[pred_mask] = self._first_step(  # pyright: ignore
+                    X, y, w, ~pred_mask, pred_mask
+                )
 
         if p is None or self.fit_propensity_estimator is True:
             # use estimated propensity scores
@@ -146,15 +151,15 @@ class BaseTwoStageEst(BaseCATEEstimator):
         return mu_0_pred, mu_1_pred, p
 
     def _do_po_cv(self, X, y, w):
-        self.po_params = []
-        temp_model_0 = GridSearchCV(self.po_estimator, param_grid=self.grid_po, cv=self.n_cv_pre)
+        self.po_params = []  # type: ignore
+        temp_model_0 = GridSearchCV(self.po_estimator, param_grid=self.grid_po, cv=self.n_cv_pre)  # pyright: ignore
         temp_model_0.fit(X[w == 0], y[w == 0])
-        self.po_params.append(temp_model_0.best_params_)
+        self.po_params.append(temp_model_0.best_params_)  # type: ignore
 
         # treated model
-        temp_model_1 = GridSearchCV(self.po_estimator, param_grid=self.grid_po, cv=self.n_cv_pre)
+        temp_model_1 = GridSearchCV(self.po_estimator, param_grid=self.grid_po, cv=self.n_cv_pre)  # pyright: ignore
         temp_model_1.fit(X[w == 1], y[w == 1])
-        self.po_params.append(temp_model_1.best_params_)
+        self.po_params.append(temp_model_1.best_params_)  # type: ignore
 
     def _fit(self, X, y, w, p=None):
         X = _get_values_only(X)
@@ -168,16 +173,15 @@ class BaseTwoStageEst(BaseCATEEstimator):
         if self.n_folds == 1:
             pred_mask = np.ones(n, dtype=bool)
             # fit plug-in models
-            mu_0_pred, mu_1_pred, p_pred = self._first_step(X, y, w, pred_mask, pred_mask)
+            mu_0_pred, mu_1_pred, p_pred = self._first_step(X, y, w, pred_mask, pred_mask)  # pyright: ignore
 
         else:
             mu_0_pred, mu_1_pred, p_pred = np.zeros(n), np.zeros(n), np.zeros(n)
 
             # create folds stratified by treatment assignment to ensure balance
-            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True,
-                                       random_state=self.random_state)
+            splitter = StratifiedKFold(n_splits=self.n_folds, shuffle=True, random_state=self.random_state)
 
-            self._test_idx_list = []
+            self._test_idx_list = []  # pylint: disable=attribute-defined-outside-init
 
             for train_index, test_index in splitter.split(X, w):
                 # create masks
@@ -185,8 +189,9 @@ class BaseTwoStageEst(BaseCATEEstimator):
                 pred_mask[test_index] = 1
 
                 # fit plug-in te_estimator
-                mu_0_pred[pred_mask], mu_1_pred[pred_mask], p_pred[pred_mask] = \
-                    self._first_step(X, y, w, ~pred_mask, pred_mask)
+                mu_0_pred[pred_mask], mu_1_pred[pred_mask], p_pred[pred_mask] = self._first_step(  # pyright: ignore
+                    X, y, w, ~pred_mask, pred_mask
+                )
 
                 self._test_idx_list.append(test_index)
 
@@ -213,16 +218,16 @@ class BaseTwoStageEst(BaseCATEEstimator):
             Predicted treatment effects
         """
         if return_po:
-            raise ValueError('Multi-stage estimators return only an estimate of CATE.')
+            raise ValueError("Multi-stage estimators return only an estimate of CATE.")
 
         if not self.avg_fold_models or self.n_folds == 1:
             # there is only a single treatment effect estimator
-            return self.te_estimator.predict(X)
+            return self.te_estimator.predict(X)  # pyright: ignore
         else:
             # there are multiple treatment effect estimators, predict their average
             preds = np.zeros((X.shape[0], self.n_folds))
             for i in range(self.n_folds):
-                preds[:, i] = self._te_model_list[i].predict(X)
+                preds[:, i] = self._te_model_list[i].predict(X)  # pyright: ignore  # pylint: disable=no-member
             return np.average(preds, axis=1)
 
     @abc.abstractmethod
@@ -249,31 +254,31 @@ class BaseTwoStageEst(BaseCATEEstimator):
         else:
             # fit two separate (standard) models
             # untreated model
-            temp_model_0 = clone(self.po_estimator)
+            temp_model_0 = clone(self.po_estimator)  # pyright: ignore
 
             # if we did some hyperparameter tuning
             if self.est_params is not None:
                 if isinstance(self.po_estimator, GridSearchCV):
-                    temp_model_0 = clone(self.po_estimator.estimator)
+                    temp_model_0 = clone(self.po_estimator.estimator)  # pyright: ignore
                 temp_model_0.set_params(**self.est_params[0])
             elif self.pre_cv_po:
-                temp_model_0.set_params(**self.po_params[0])
+                temp_model_0.set_params(**self.po_params[0])  # type: ignore
 
             temp_model_0.fit(X_fit[W_fit == 0], Y_fit[W_fit == 0])
 
             # treated model
-            temp_model_1 = clone(self.po_estimator)
+            temp_model_1 = clone(self.po_estimator)  # pyright: ignore
 
             if self.est_params is not None:
                 if isinstance(self.po_estimator, GridSearchCV):
-                    temp_model_1 = clone(self.po_estimator.estimator)
+                    temp_model_1 = clone(self.po_estimator.estimator)  # pyright: ignore
                 if len(self.est_params) == 1:
                     temp_model_1.set_params(**self.est_params[0])
                 else:
                     temp_model_1.set_params(**self.est_params[1])
 
             elif self.pre_cv_po:
-                temp_model_1.set_params(**self.po_params[1])
+                temp_model_1.set_params(**self.po_params[1])  # type: ignore
 
             temp_model_1.fit(X_fit[W_fit == 1], Y_fit[W_fit == 1])
 
@@ -297,7 +302,7 @@ class BaseTwoStageEst(BaseCATEEstimator):
             X_fit, W_fit = X[fit_mask, :], w[fit_mask]
 
             # fit propensity estimator
-            temp_propensity_estimator = clone(self.propensity_estimator)
+            temp_propensity_estimator = clone(self.propensity_estimator)  # pyright: ignore
             temp_propensity_estimator.fit(X_fit, W_fit)
 
             # predict propensity on hold out
@@ -316,11 +321,11 @@ class BaseTwoStageEst(BaseCATEEstimator):
         X_fit, Y_fit = X[fit_mask, :], y[fit_mask]
 
         # fit model
-        temp_model = clone(self.po_estimator)
+        temp_model = clone(self.po_estimator)  # pyright: ignore
 
         if self.est_params is not None:
             if isinstance(self.po_estimator, GridSearchCV):
-                temp_model = clone(self.po_estimator.estimator)
+                temp_model = clone(self.po_estimator.estimator)  # pyright: ignore
             temp_model.set_params(**self.est_params[0])
         elif self.pre_cv_po:
             temp_model.set_params(**self.po_params)
@@ -339,40 +344,36 @@ class BaseTwoStageEst(BaseCATEEstimator):
 
     def _prepare_self(self):
         if self.po_estimator is None:
-            self.po_estimator = clone(self.te_estimator)
+            self.po_estimator = clone(self.te_estimator)  # pyright: ignore
 
         if self.fit_propensity_estimator and self.propensity_estimator is None:
-            raise ValueError("Need to pass propensity_estimator if you wish to fit a propensity "
-                             "estimator")
+            raise ValueError("Need to pass propensity_estimator if you wish to fit a propensity estimator")
 
         # check that all estimators have the attributes they should have and clone them to be safe
         if self.propensity_estimator is not None:
-            self.propensity_estimator = check_estimator_has_method(self.propensity_estimator,
-                                                                   'predict_proba',
-                                                                   'propensity_estimator',
-                                                                   return_clone=True)
+            self.propensity_estimator = check_estimator_has_method(
+                self.propensity_estimator, "predict_proba", "propensity_estimator", return_clone=True
+            )
 
         if not isinstance(self.po_estimator, BasePluginCATEEstimator):
             needed_pred_method = get_name_needed_prediction_method(self.binary_y)
-            self.po_estimator = check_estimator_has_method(self.po_estimator,
-                                                           needed_pred_method,
-                                                           'po_estimator', return_clone=True)
+            self.po_estimator = check_estimator_has_method(
+                self.po_estimator, needed_pred_method, "po_estimator", return_clone=True
+            )
 
-        self.te_estimator = check_estimator_has_method(self.te_estimator,
-                                                       'predict',
-                                                       'te_estimator', return_clone=True)
+        self.te_estimator = check_estimator_has_method(self.te_estimator, "predict", "te_estimator", return_clone=True)
         if self.pre_cv_po and self.grid_po is None:
-            raise ValueError('Can only do pre-cv-po if parameter grid grid_po is specified.')
+            raise ValueError("Can only do pre-cv-po if parameter grid grid_po is specified.")
 
         if self.pre_cv_te and self.grid_te is None:
-            raise ValueError('Can only do pre-cv-te if parameter grid grid_te is specified.')
+            raise ValueError("Can only do pre-cv-te if parameter grid grid_te is specified.")
 
         if self.est_params is not None:
             if not isinstance(self.est_params, list):
                 if isinstance(self.est_params, dict):
                     self.est_params = [self.est_params]
                 else:
-                    raise ValueError('est_params should be a list of dicts or a dict.')
+                    raise ValueError("est_params should be a list of dicts or a dict.")
 
         self._individual_checks()
 
@@ -394,7 +395,11 @@ class DRLearner(BaseTwoStageEst):
         pseudo_outcome = dr_transformation_cate(y, w, p, mu_0, mu_1)
 
         if self.n_cv_pre > 1 and self.pre_cv_te:
-            te_est_temp = GridSearchCV(self.te_estimator, self.grid_te, cv=self.n_cv_pre)
+            te_est_temp = GridSearchCV(
+                self.te_estimator,
+                self.grid_te,  # pyright: ignore
+                cv=self.n_cv_pre,
+            )
             te_est_temp.fit(X, pseudo_outcome)
             self.te_params = te_est_temp.best_params_
 
@@ -402,7 +407,7 @@ class DRLearner(BaseTwoStageEst):
             self.te_estimator.set_params(**self.te_params)
 
         if self.avg_fold_models and self.n_folds > 1:
-            self._te_model_list = []
+            self._te_model_list = []  # pylint: disable=attribute-defined-outside-init
             for i in range(self.n_folds):
                 temp_est_i = clone(self.te_estimator)
                 temp_est_i.fit(X[self._test_idx_list[i], :], pseudo_outcome[self._test_idx_list[i]])
@@ -423,13 +428,14 @@ class PWLearner(BaseTwoStageEst):
 
     def _second_step(self, X, y, w, p, mu_0, mu_1):
         pseudo_outcome = pw_transformation_cate(y, w, p)
-        self.te_estimator.fit(X, pseudo_outcome)
+        self.te_estimator.fit(X, pseudo_outcome)  # pyright: ignore
 
 
 class RALearner(BaseTwoStageEst):
     """
     RA-learner for CATE estimation, based on singly robust regression-adjusted pseudo-outcome
     """
+
     def _first_step(self, X, y, w, fit_mask, pred_mask):
         mu0_pred, mu1_pred = self._impute_pos(X, y, w, fit_mask, pred_mask)
         p_pred = np.nan  # not needed
@@ -437,7 +443,7 @@ class RALearner(BaseTwoStageEst):
 
     def _second_step(self, X, y, w, p, mu_0, mu_1):
         pseudo_outcome = ra_transformation_cate(y, w, p, mu_0, mu_1)
-        self.te_estimator.fit(X, pseudo_outcome)
+        self.te_estimator.fit(X, pseudo_outcome)  # pyright: ignore
 
 
 class VirtualTwin(BaseTwoStageEst):
@@ -445,6 +451,7 @@ class VirtualTwin(BaseTwoStageEst):
     Virtual Twin for CATE estimation. Very similar to T-/S-learner, but instead of outputting
     mu1(x)-mu0(x), regresses mu1(x)-mu0(x) on X with a second stage model.
     """
+
     def _first_step(self, X, y, w, fit_mask, pred_mask):
         mu0_pred, mu1_pred = self._impute_pos(X, y, w, fit_mask, pred_mask)
         p_pred = np.nan  # not needed
@@ -452,7 +459,7 @@ class VirtualTwin(BaseTwoStageEst):
 
     def _second_step(self, X, y, w, p, mu_0, mu_1):
         pseudo_outcome = mu_1 - mu_0
-        self.te_estimator.fit(X, pseudo_outcome)
+        self.te_estimator.fit(X, pseudo_outcome)  # pyright: ignore
 
 
 class ULearner(BaseTwoStageEst):
@@ -468,7 +475,7 @@ class ULearner(BaseTwoStageEst):
 
     def _second_step(self, X, y, w, p, mu_0, mu_1):
         pseudo_outcome = u_transformation_cate(y, w, p, mu_0)
-        self.te_estimator.fit(X, pseudo_outcome)
+        self.te_estimator.fit(X, pseudo_outcome)  # pyright: ignore
 
 
 class RLearner(BaseTwoStageEst):
@@ -487,7 +494,11 @@ class RLearner(BaseTwoStageEst):
         pseudo_outcome = u_transformation_cate(y, w, p, mu_0)
 
         if self.n_cv_pre > 1 and self.pre_cv_te:
-            te_est_temp = GridSearchCV(self.te_estimator, self.grid_te, cv=self.n_cv_pre)
+            te_est_temp = GridSearchCV(
+                self.te_estimator,
+                self.grid_te,  # pyright: ignore
+                cv=self.n_cv_pre,
+            )
             te_est_temp.fit(X, pseudo_outcome, sample_weight=(w - p) ** 2)
             self.te_params = te_est_temp.best_params_
 
@@ -495,17 +506,24 @@ class RLearner(BaseTwoStageEst):
             self.te_estimator.set_params(**self.te_params)
 
         if self.avg_fold_models and self.n_folds > 1:
-            self._te_model_list = []
+            self._te_model_list = []  # pylint: disable=attribute-defined-outside-init
             for i in range(self.n_folds):
                 temp_est_i = clone(self.te_estimator)
-                temp_est_i.fit(X[self._test_idx_list[i], :], pseudo_outcome[self._test_idx_list[i]],
-                               sample_weight=((w - p) ** 2)[self._test_idx_list[i]])
+                temp_est_i.fit(
+                    X[self._test_idx_list[i], :],
+                    pseudo_outcome[self._test_idx_list[i]],
+                    sample_weight=((w - p) ** 2)[self._test_idx_list[i]],
+                )
                 self._te_model_list.append(temp_est_i)
         else:
             self.te_estimator.fit(X, pseudo_outcome, sample_weight=(w - p) ** 2)
 
     def _do_po_cv(self, X, y, w):
-        temp_model = GridSearchCV(self.po_estimator, param_grid=self.grid_po, cv=self.n_cv_pre)
+        temp_model = GridSearchCV(
+            self.po_estimator,  # pyright: ignore
+            param_grid=self.grid_po,  # pyright: ignore
+            cv=self.n_cv_pre,
+        )
         temp_model.fit(X, y)
         self.po_params = temp_model.best_params_
 
@@ -516,33 +534,42 @@ class XLearner(BaseTwoStageEst):
     tau(x) = g(x) tau_0(x) + (1-g(x)) tau_1(x)
     """
 
-    def __init__(self, te_estimator, po_estimator=None, propensity_estimator=None,
-                 binary_y: bool = False, fit_propensity_estimator: bool = True,
-                 weighting_strategy='prop'):
-        super().__init__(te_estimator=te_estimator, po_estimator=po_estimator,
-                         propensity_estimator=propensity_estimator, binary_y=binary_y,
-                         fit_propensity_estimator=fit_propensity_estimator, n_folds=1)
+    def __init__(
+        self,
+        te_estimator,
+        po_estimator=None,
+        propensity_estimator=None,
+        binary_y: bool = False,
+        fit_propensity_estimator: bool = True,
+        weighting_strategy="prop",
+    ):
+        super().__init__(
+            te_estimator=te_estimator,
+            po_estimator=po_estimator,
+            propensity_estimator=propensity_estimator,
+            binary_y=binary_y,
+            fit_propensity_estimator=fit_propensity_estimator,
+            n_folds=1,
+        )
         self.weighting_strategy = weighting_strategy
 
     def _individual_checks(self):
         # check if weighting functions
         if self.weighting_strategy.isnumeric():
-            if self.weighting_strategy > 1 or self.weighting_strategy < 0:
-                raise ValueError('Numeric weighting_strategy should be in [0, 1]')
-            pass
+            if self.weighting_strategy > 1 or self.weighting_strategy < 0:  # pyright: ignore
+                raise ValueError("Numeric weighting_strategy should be in [0, 1]")
+            pass  # pylint: disable=unnecessary-pass
         elif type(self.weighting_strategy) is str:
-            if self.weighting_strategy == 'prop':
+            if self.weighting_strategy == "prop":
                 pass
-            elif self.weighting_strategy == '1-prop':
+            elif self.weighting_strategy == "1-prop":
                 pass
             else:
-                raise ValueError('Weighting strategy should be numeric, "prop", "1-prop" or a'
-                                 'callable.')
+                raise ValueError('Weighting strategy should be numeric, "prop", "1-prop" or a "callable."')
         elif callable(self.weighting_strategy):
             pass
         else:
-            raise ValueError('Weighting strategy should be numeric, "prop", "1-prop" or a'
-                             'callable.')
+            raise ValueError('Weighting strategy should be numeric, "prop", "1-prop" or a "callable."')
 
     def _first_step(self, X, y, w, fit_mask, pred_mask):
         mu0_pred, mu1_pred = self._impute_pos(X, y, w, fit_mask, pred_mask)
@@ -552,15 +579,17 @@ class XLearner(BaseTwoStageEst):
     def _second_step(self, X, y, w, p, mu_0, mu_1):
         # split by treatment status, fit one model per group
         pseudo_0 = mu_1[w == 0] - y[w == 0]
-        self._te_estimator_0 = clone(self.te_estimator)
+        # pylint: disable-next=attribute-defined-outside-init
+        self._te_estimator_0 = clone(self.te_estimator)  # pyright: ignore
         self._te_estimator_0.fit(X[w == 0], pseudo_0)
 
         pseudo_1 = y[w == 1] - mu_0[w == 1]
-        self._te_estimator_1 = clone(self.te_estimator)
+        # pylint: disable-next=attribute-defined-outside-init
+        self._te_estimator_1 = clone(self.te_estimator)  # pyright: ignore
         self._te_estimator_1.fit(X[w == 1], pseudo_1)
 
-        if self.weighting_strategy == 'prop' or self.weighting_strategy == '1-prop':
-            self.propensity_estimator.fit(X, w)
+        if self.weighting_strategy == "prop" or self.weighting_strategy == "1-prop":
+            self.propensity_estimator.fit(X, w)  # pyright: ignore
 
     def predict(self, X, return_po=False):
         """
@@ -578,21 +607,21 @@ class XLearner(BaseTwoStageEst):
             Predicted treatment effects
         """
         if return_po:
-            raise ValueError('Multi-stage estimators return only an estimate of CATE.')
+            raise ValueError("Multi-stage estimators return only an estimate of CATE.")
 
         tau0_pred = self._te_estimator_0.predict(X)
         tau1_pred = self._te_estimator_1.predict(X)
 
-        if self.weighting_strategy == 'prop' or self.weighting_strategy == '1-prop':
-            prop_pred = self.propensity_estimator.predict(X)
+        if self.weighting_strategy == "prop" or self.weighting_strategy == "1-prop":
+            prop_pred = self.propensity_estimator.predict(X)  # pyright: ignore
 
-        if self.weighting_strategy == 'prop':
-            weight = prop_pred
-        elif self.weighting_strategy == '1-prop':
-            weight = 1 - prop_pred
+        if self.weighting_strategy == "prop":
+            weight = prop_pred  # pyright: ignore
+        elif self.weighting_strategy == "1-prop":
+            weight = 1 - prop_pred  # pyright: ignore
         elif self.weighting_strategy.isnumeric():
             weight = self.weighting_strategy
         else:
             # weighting strategy must be callable
-            weight = self.weighting_strategy(X)
-        return weight * tau0_pred + (1 - weight) * tau1_pred
+            weight = self.weighting_strategy(X)  # pyright: ignore
+        return weight * tau0_pred + (1 - weight) * tau1_pred  # pyright: ignore

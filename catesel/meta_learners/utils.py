@@ -18,13 +18,12 @@ def get_name_needed_prediction_method(binary_y: bool):
     method name (str)
     """
     if binary_y:
-        return 'predict_proba'
+        return "predict_proba"
     else:
-        return 'predict'
+        return "predict"
 
 
-def check_estimator_has_method(estimator, needed_method: str, estimator_name: str,
-                               return_clone: bool = False):
+def check_estimator_has_method(estimator, needed_method: str, estimator_name: str, return_clone: bool = False):
     """
     Check that an estimator has a specific method.
 
@@ -49,5 +48,4 @@ def check_estimator_has_method(estimator, needed_method: str, estimator_name: st
         else:
             pass
     else:
-        raise ValueError('{} needs to implement method {}'.format(estimator_name,
-                                                                  needed_method))
+        raise ValueError("{} needs to implement method {}".format(estimator_name, needed_method))

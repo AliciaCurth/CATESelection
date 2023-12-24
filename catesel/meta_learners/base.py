@@ -1,15 +1,17 @@
 """
 Base for CATE meta-learners
 """
+# pylint: disable=unnecessary-pass,attribute-defined-outside-init
+
 # Author: Alicia Curth
 import abc
-import numpy as np
+from typing import Optional
 
+import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin, clone
 from sklearn.model_selection import GridSearchCV
 
-from ..meta_learners.utils import get_name_needed_prediction_method,  \
-    check_estimator_has_method
+from ..meta_learners.utils import check_estimator_has_method, get_name_needed_prediction_method
 from ..utils.base import _get_values_only
 from ..utils.weight_utils import compute_importance_weights
 
@@ -18,6 +20,7 @@ class BaseCATEEstimator(BaseEstimator, RegressorMixin, abc.ABC):
     """
     Base class for treatment effect models
     """
+
     def __init__(self):
         pass
 
@@ -65,10 +68,10 @@ class BaseCATEEstimator(BaseEstimator, RegressorMixin, abc.ABC):
     def _check_inputs(w, p):
         if p is not None:
             if np.sum(p > 1) > 0 or np.sum(p < 0) > 0:
-                raise ValueError('p should be in [0,1]')
+                raise ValueError("p should be in [0,1]")
 
         if not ((w == 0) | (w == 1)).all():
-            raise ValueError('W should be binary')
+            raise ValueError("W should be binary")
 
 
 class BasePluginCATEEstimator(BaseCATEEstimator):
@@ -87,11 +90,16 @@ class BasePluginCATEEstimator(BaseCATEEstimator):
     est_params: dict or list of dicts, default None
         Hyperparameters to be passed to po-estimator
     """
-    def __init__(self, po_estimator, binary_y: bool = False,
-                 propensity_estimator: bool = None,
-                 weighting_strategy: str = None,
-                 weight_args: dict = None,
-                 est_params: list = None):
+
+    def __init__(
+        self,
+        po_estimator,
+        binary_y: bool = False,
+        propensity_estimator: Optional[bool] = None,
+        weighting_strategy: Optional[str] = None,
+        weight_args: Optional[dict] = None,
+        est_params: Optional[list] = None,
+    ):
         self.po_estimator = po_estimator
         self.binary_y = binary_y
         self.propensity_estimator = propensity_estimator
@@ -101,27 +109,31 @@ class BasePluginCATEEstimator(BaseCATEEstimator):
 
     def _fit_propensity_estimator(self, X, w):
         if self.propensity_estimator is None:
-            raise ValueError("Can only fit propensity estimator if propensity_estimator is not "
-                             "None.")
-        self.propensity_estimator.fit(X, w)
+            raise ValueError("Can only fit propensity estimator if propensity_estimator is not None.")
+        self.propensity_estimator.fit(X, w)  # type: ignore
 
     def _get_importance_weights(self, X, w):
-        p_pred = self.propensity_estimator.predict_proba(X)
+        p_pred = self.propensity_estimator.predict_proba(X)  # type: ignore
         if p_pred.ndim > 1:
             if p_pred.shape[1] == 2:
                 p_pred = p_pred[:, 1]
-        return compute_importance_weights(p_pred, w, self.weighting_strategy, self.weight_args,
-                                          normalize=True)
+        return compute_importance_weights(
+            p_pred,
+            w,
+            self.weighting_strategy,
+            self.weight_args,  # type: ignore
+            normalize=True,
+        )
 
 
 class TLearner(BasePluginCATEEstimator):
     """
     T-learner for treatment effect estimation (Two learners, fit separately)
     """
+
     def _prepare_self(self):
         needed_pred_method = get_name_needed_prediction_method(self.binary_y)
-        check_estimator_has_method(self.po_estimator, needed_pred_method,
-                                   'po_estimator', return_clone=False)
+        check_estimator_has_method(self.po_estimator, needed_pred_method, "po_estimator", return_clone=False)
 
         # to make sure that we are starting with clean objects
         self._plug_in_0 = clone(self.po_estimator)
@@ -129,8 +141,8 @@ class TLearner(BasePluginCATEEstimator):
 
         if self.est_params is not None:
             if isinstance(self.po_estimator, GridSearchCV):
-                self._plug_in_1 = clone(self.po_estimator.estimator)
-                self._plug_in_0 = clone(self.po_estimator.estimator)
+                self._plug_in_1 = clone(self.po_estimator.estimator)  # pyright: ignore
+                self._plug_in_0 = clone(self.po_estimator.estimator)  # pyright: ignore
 
             if len(self.est_params) == 1:
                 self._plug_in_1.set_params(**self.est_params[0])
@@ -157,7 +169,9 @@ class TLearner(BasePluginCATEEstimator):
         self._prepare_self()
         self._check_inputs(w, p)
         if len(w.shape) > 1:
-            w = w.reshape(-1, ).copy()
+            w = w.reshape(
+                -1,
+            ).copy()
         if self.weighting_strategy is None:
             # standard T-learner
             self._plug_in_0.fit(X[w == 0], y[w == 0])
@@ -167,8 +181,8 @@ class TLearner(BasePluginCATEEstimator):
             # use reweighting within plug-in model
             self._fit_propensity_estimator(X, w)
             weights = self._get_importance_weights(X, w)
-            self._plug_in_0.fit(X[w == 0], y[w == 0], sample_weights=weights[w == 0])
-            self._plug_in_1.fit(X[w == 1], y[w == 1], sample_weights=weights[w == 1])
+            self._plug_in_0.fit(X[w == 0], y[w == 0], sample_weights=weights[w == 0])  # pyright: ignore
+            self._plug_in_1.fit(X[w == 1], y[w == 1], sample_weights=weights[w == 1])  # pyright: ignore
 
     def predict(self, X, return_po: bool = False):
         """
@@ -213,13 +227,18 @@ class SLearner(BasePluginCATEEstimator):
     S-learner for treatment effect estimation (single learner, treatment indicator just another
     feature).
     """
-    def __init__(self, po_estimator, binary_y: bool = False,
-                 propensity_estimator: bool = None,
-                 weighting_strategy: str = None,
-                 weight_args: dict = None,
-                 extend_covs: bool = False,
-                 est_params: list = None
-                 ):
+
+    # pylint: disable-next=super-init-not-called
+    def __init__(
+        self,
+        po_estimator,
+        binary_y: bool = False,
+        propensity_estimator: Optional[bool] = None,
+        weighting_strategy: Optional[str] = None,
+        weight_args: Optional[dict] = None,
+        extend_covs: Optional[bool] = False,
+        est_params: Optional[list] = None,
+    ):
         self.po_estimator = po_estimator
         self.binary_y = binary_y
         self.propensity_estimator = propensity_estimator
@@ -230,15 +249,14 @@ class SLearner(BasePluginCATEEstimator):
 
     def _prepare_self(self):
         needed_pred_method = get_name_needed_prediction_method(self.binary_y)
-        check_estimator_has_method(self.po_estimator, needed_pred_method,
-                                   'po_estimator', return_clone=False)
+        check_estimator_has_method(self.po_estimator, needed_pred_method, "po_estimator", return_clone=False)
 
         # to make sure that we are starting with clean objects
         self._plug_in = clone(self.po_estimator)
 
         if self.est_params is not None:
             if isinstance(self.po_estimator, GridSearchCV):
-                self._plug_in = clone(self.po_estimator.estimator)
+                self._plug_in = clone(self.po_estimator.estimator)  # pyright: ignore
 
             self._plug_in.set_params(**self.est_params[0])
 
@@ -307,8 +325,8 @@ class SLearner(BasePluginCATEEstimator):
             X_ext_0 = np.concatenate((X, w_0), axis=1)
             X_ext_1 = np.concatenate((X, w_1), axis=1)
         else:
-            X_ext_0 = np.concatenate((X, w_0, X*w_0), axis=1)
-            X_ext_1 = np.concatenate((X, w_1, X*w_1), axis=1)
+            X_ext_0 = np.concatenate((X, w_0, X * w_0), axis=1)
+            X_ext_1 = np.concatenate((X, w_1, X * w_1), axis=1)
 
         if self.binary_y:
             y_0 = self._plug_in.predict_proba(X_ext_0)

@@ -67,11 +67,11 @@ def unarchive_if_needed(path: Path, output_folder: Path) -> None:
     """
     if str(path).endswith(".tar.gz"):
         tar = tarfile.open(path, "r:gz")
-        tar.extractall(path=output_folder) # nosec
+        tar.extractall(path=output_folder)  # nosec
         tar.close()
     elif str(path).endswith(".tar"):
         tar = tarfile.open(path, "r:")
-        tar.extractall(path=output_folder) # nosec
+        tar.extractall(path=output_folder)  # nosec
         tar.close()
     else:
         raise NotImplementedError(f"archive not supported {path}")
@@ -113,6 +113,6 @@ def download_if_needed(
     if unarchive and unarchive_folder is not None:
         try:
             unarchive_if_needed(download_path, unarchive_folder)
-        except BaseException as e:
+        except BaseException as e:  # pylint: disable=broad-exception-caught
             print(f"Failed to unpack {download_path}. Error {e}")
             download_path.unlink()

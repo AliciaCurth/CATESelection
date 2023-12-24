@@ -12,9 +12,7 @@ from catesel.utils.weight_utils import compute_trunc_ipw
 class FactualTEScorer(_BaseTEScorer):
     # Factual CATE estimator scorer: scores BaseCATEEstimators on their factual prediction
     # performance
-    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None,
-               sample_weight=None, t_score=None):
-
+    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None, sample_weight=None, t_score=None):
         if t_score is not None:
             # cannot score CATE prediction, needs po-predictions
             return np.nan
@@ -26,11 +24,14 @@ class FactualTEScorer(_BaseTEScorer):
             # needs po-predictions
             return np.nan
 
-        y_pred = (1-w_factual)*mu0 + w_factual*mu1
+        y_pred = (1 - w_factual) * mu0 + w_factual * mu1
 
         if sample_weight is not None:
-            return self._sign * self._score_func(y_factual, y_pred, sample_weight=sample_weight,
-                                                 )
+            return self._sign * self._score_func(
+                y_factual,
+                y_pred,
+                sample_weight=sample_weight,
+            )
         else:
             return self._sign * self._score_func(y_factual, y_pred)
 
@@ -47,12 +48,10 @@ class wFactualTEScorer(_BaseTEScorer):
         if not self.plugin_prefit:
             return
         else:
-            self.prop_model.fit(X, w_factual)
+            self.prop_model.fit(X, w_factual)  # pyright: ignore
             self._models_fitted = True
 
-    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None,
-               sample_weight=None, t_score=None):
-
+    def _score(self, estimator, X, y_factual, w_factual, p_true=None, t_true=None, sample_weight=None, t_score=None):
         # get predicted POs
         if t_score is not None:
             return np.nan
@@ -62,17 +61,20 @@ class wFactualTEScorer(_BaseTEScorer):
         except ValueError:
             return np.nan
 
-        y_pred = (1-w_factual)*mu0 + w_factual*mu1
+        y_pred = (1 - w_factual) * mu0 + w_factual * mu1
 
         if p_true is not None:
             prop = p_true
         else:
             if not self.plugin_prefit and not self._models_fitted:
-                self.prop_model.fit(X, w_factual)
+                self.prop_model.fit(X, w_factual)  # pyright: ignore
                 self._models_fitted = True
-            prop = self.prop_model.predict_proba(X)[:, 1]
+            prop = self.prop_model.predict_proba(X)[:, 1]  # pyright: ignore
 
         sample_weight = compute_trunc_ipw(prop, w_factual, cutoff=self.cutoff, normalize=True)
 
-        return self._sign * self._score_func(y_factual, y_pred, sample_weight=sample_weight,
-                                            )
+        return self._sign * self._score_func(
+            y_factual,
+            y_pred,
+            sample_weight=sample_weight,
+        )
