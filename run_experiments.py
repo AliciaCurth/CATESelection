@@ -198,7 +198,6 @@ if __name__ == "__main__":
                 rel_prop=args.rel_prop,
                 prop_truespec=args.true_prop,
             )
-            print("dfd")
         elif args.setup == "B":
             grid_comparison_experiment(
                 learner_models=args.regressors,
